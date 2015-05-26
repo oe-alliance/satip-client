@@ -685,9 +685,6 @@ static void get_property(struct satip_vtuner* vt, struct vtuner_message* msg)
     case DTV_ROLLOFF:
         DEBUG(MSG_MAIN,"get_property: DTV_ROLLOFF\n");
         break;
-    case DTV_PILOT:
-        DEBUG(MSG_MAIN,"get_property: DTV_PILOT\n");
-        break;
     case DTV_CODE_RATE_LP:
         DEBUG(MSG_MAIN,"get_property: DTV_CODE_RATE_LP\n");
         break;
@@ -709,6 +706,9 @@ static void get_property(struct satip_vtuner* vt, struct vtuner_message* msg)
 #if DVB_API_VERSION > 5 || DVB_API_VERSION == 5 && DVB_API_VERSION_MINOR >= 9
     case DTV_STREAM_ID:
         DEBUG(MSG_MAIN,"get_property: DTV_STREAM_ID\n");
+        break;
+    case DTV_PILOT:
+        DEBUG(MSG_MAIN,"get_property: DTV_PILOT\n");
         break;
 #elif DVB_API_VERSION > 5 || DVB_API_VERSION == 5 && DVB_API_VERSION_MINOR >= 3
     case DTV_PILOT:
