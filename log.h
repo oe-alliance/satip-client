@@ -18,6 +18,8 @@
 #ifndef __LOG_H__
 #define __LOG_H__
 
+#include <sys/types.h>
+#include <unistd.h>
 extern int dbg_level;
 extern unsigned int dbg_mask; // MSG_DATA | MSG_MAIN | MSG_NET | MSG_HW | MSG_SRV
 extern int use_syslog;
