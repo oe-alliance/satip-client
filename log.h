@@ -15,14 +15,11 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _LOG_H_
-#define _LOG_H_
-
-#include <sys/types.h>
-#include <unistd.h>
+#ifndef __LOG_H__
+#define __LOG_H__
 
 extern int dbg_level;
-extern unsigned int dbg_mask; // MSG_MAIN | MSG_NET | MSG_HW
+extern unsigned int dbg_mask; // MSG_DATA | MSG_MAIN | MSG_NET | MSG_HW | MSG_SRV
 extern int use_syslog;
 
 
@@ -38,12 +35,10 @@ extern int use_syslog;
 #define MSG_INFO	3
 #define MSG_DEBUG	4
 
-#define ERROR(mtype, msg, ...) write_message(mtype, MSG_ERROR, "[%d %s:%u] error: " msg, getpid(), __FILE__, __LINE__, ## __VA_ARGS__)
-#define  WARN(mtype, msg, ...) write_message(mtype, MSG_WARN,  "[%d %s:%u]  warn: " msg, getpid(), __FILE__, __LINE__, ## __VA_ARGS__)
-#define  INFO(mtype, msg, ...) write_message(mtype, MSG_INFO,  "[%d %s:%u]  info: " msg, getpid(), __FILE__, __LINE__, ## __VA_ARGS__)
-#define DEBUG(mtype, msg, ...) write_message(mtype, MSG_DEBUG, "[%d %s:%u] debug: " msg, getpid(), __FILE__, __LINE__, ## __VA_ARGS__)
+#define ERROR(mtype, msg, ...) write_message(mtype, MSG_ERROR, "[%d %-20s:%4u][%-25s]\t error: " msg, getpid(), __FILE__, __LINE__, __FUNCTION__, ## __VA_ARGS__)
+#define  WARN(mtype, msg, ...) write_message(mtype, MSG_WARN,  "[%d %-20s:%4u][%-25s]\t  warn: " msg, getpid(), __FILE__, __LINE__, __FUNCTION__, ## __VA_ARGS__)
+#define  INFO(mtype, msg, ...) write_message(mtype, MSG_INFO,  "[%d %-20s:%4u][%-25s]\t  info: " msg, getpid(), __FILE__, __LINE__, __FUNCTION__, ## __VA_ARGS__)
+#define DEBUG(mtype, msg, ...) write_message(mtype, MSG_DEBUG, "[%d %-20s:%4u][%-25s]\t debug: " msg, getpid(), __FILE__, __LINE__, __FUNCTION__, ## __VA_ARGS__)
 
 void write_message(const unsigned int, const int, const char*, ...);
-int open_udplog(char *, int );
-void udplog_enable(int);
-#endif
+#endif // __LOG_H__

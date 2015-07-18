@@ -2,7 +2,11 @@
 # Makefile for satip client
 #
 #
-VTUNER_TYPE = VTUNER_TYPE_ORIGINAL
+#Based on original vtuner source code from Google Code project.
+#VTUNER_TYPE = VTUNER_TYPE_ORIGINAL
+#
+#Based on definitions found in the "usbtunerhelper" tool.
+VTUNER_TYPE = VTUNER_TYPE_VUPLUS
 
 CFLAGS += -Wall -g -D$(VTUNER_TYPE)
 

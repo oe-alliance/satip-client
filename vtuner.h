@@ -1,127 +1,114 @@
 /*
- * satip: driver interface for vtuner
+ * satip: vtuner to satip mapping
  *
- * Copyright (C) 2014 mc.fishdish@gmail.com
- * [copy of vtuner by Honza Petrous]
- * Copyright (C) 2010-11 Honza Petrous <jpetrous@smartimp.cz>
- * [based on dreamtuner userland code by Roland Mieslinger]
+ * Copyright (C) 2014  mc.fishdish@gmail.com
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation version 2.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as 
+ * published by the Free Software Foundation.
  *
- * This program is distributed WITHOUT ANY WARRANTY of any
- * kind, whether express or implied; without even the implied warranty
- * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef _VTUNER_H_
-#define _VTUNER_H_
+#ifndef __VTUNER_H__
+#define __VTUNER_H__
+
+#include "config.h"
+#include "rtp.h"
+
+#define VTUNER_PIDLIST_LEN 30 // from usbtunerhelper
 
 #include <linux/dvb/version.h>
 #include <linux/dvb/frontend.h>
 #include <linux/dvb/dmx.h>
 
-#define VT_NULL 0x00
-#define VT_S   0x01
-#define VT_C   0x02
-#define VT_T   0x04
-#define VT_S2  0x08
-
-#define MSG_SET_FRONTEND		1
-#define MSG_GET_FRONTEND		2
-#define MSG_READ_STATUS			3
-#define MSG_READ_BER			4
+#define MSG_SET_FRONTEND			1
+#define MSG_GET_FRONTEND			2
+#define MSG_READ_STATUS				3
+#define MSG_READ_BER				4
 #define MSG_READ_SIGNAL_STRENGTH	5
-#define MSG_READ_SNR			6
-#define MSG_READ_UCBLOCKS		7
-#define MSG_SET_TONE			8
-#define MSG_SET_VOLTAGE			9
+#define MSG_READ_SNR				6
+#define MSG_READ_UCBLOCKS			7
+#define MSG_SET_TONE				8
+#define MSG_SET_VOLTAGE				9
 #define MSG_ENABLE_HIGH_VOLTAGE		10
-#define MSG_SEND_DISEQC_MSG		11
+#define MSG_SEND_DISEQC_MSG			11
 #define MSG_SEND_DISEQC_BURST		13
-#define MSG_PIDLIST			14
-#define MSG_TYPE_CHANGED		15
-#define MSG_SET_PROPERTY		16
-#define MSG_GET_PROPERTY		17
+#define MSG_PIDLIST					14
+#define MSG_TYPE_CHANGED			15
+#define MSG_SET_PROPERTY			16
+#define MSG_GET_PROPERTY			17
 
-#define MSG_NULL			1024
+#define MSG_NULL				1024
 #define MSG_DISCOVER			1025
 #define MSG_UPDATE       		1026
 
-struct diseqc_master_cmd
-{
-    u8 msg[6];
-    u8 msg_len;
-};
+typedef unsigned int   u32;
+typedef unsigned short u16;
+typedef unsigned char  u8;
 
-struct vtuner_message
-{
-    s32 type;
-    union
-    {
-        struct
-        {
-            u32	frequency;
-            u8	inversion;
-            union
-            {
-                struct
-                {
-                    u32	symbol_rate;
-                    u32	fec_inner;
-                } qpsk;
-                struct
-                {
-                    u32   symbol_rate;
-                    u32   fec_inner;
-                    u32	modulation;
-                } qam;
-                struct
-                {
-                    u32	bandwidth;
-                    u32	code_rate_HP;
-                    u32	code_rate_LP;
-                    u32	constellation;
-                    u32	transmission_mode;
-                    u32	guard_interval;
-                    u32	hierarchy_information;
-                } ofdm;
-                struct
-                {
-                    u32	modulation;
-                } vsb;
-            } u;
-        } fe_params;
-        struct dtv_property prop;
-        u32 status;
-        u32 ber;
-        u16 ss;
-        u16 snr;
-        u32 ucb;
-        u8 tone;
-        u8 voltage;
-        struct diseqc_master_cmd diseqc_master_cmd;
-        u8 burst;
-        u16 pidlist[30];
-        u8  pad[72];
-        u32 type_changed;
-    } body;
-};
+struct vtuner_message {
+	__u32 type;
+	union 
+	{
+        struct dvb_frontend_parameters fe_params;
 
-#define VTUNER_MAJOR		226
-
-/*#define PVR_FLUSH_BUFFER	_IO(VTUNER_MAJOR, 0)*/
-#define VTUNER_GET_MESSAGE	_IOR(VTUNER_MAJOR, 1, struct vtuner_message *)
-#define VTUNER_SET_RESPONSE 	_IOW(VTUNER_MAJOR, 2, struct vtuner_message *)
-#define VTUNER_SET_NAME		_IOW(VTUNER_MAJOR, 3, char *)
-#define VTUNER_SET_TYPE		_IOW(VTUNER_MAJOR, 4, char *)
-#define VTUNER_SET_FE_INFO	_IOW(VTUNER_MAJOR, 6, struct dvb_frontend_info *)
-#define VTUNER_SET_NUM_MODES	_IOW(VTUNER_MAJOR, 7, int)
-#define VTUNER_SET_MODES	_IOW(VTUNER_MAJOR, 8, char *)
-
+#if DVB_API_VERSION >= 5
+		struct dtv_property prop;
 #endif
+		u32 status;
+		__u32 ber;
+		__u16 ss;
+		__u16 snr;
+		__u32 ucb;
+		fe_sec_tone_mode_t tone;
+		fe_sec_voltage_t voltage;
+		struct dvb_diseqc_master_cmd diseqc_master_cmd;
+		fe_sec_mini_cmd_t burst;
+		__u16 pidlist[VTUNER_PIDLIST_LEN];
+		unsigned char  pad[72];
+		__u32 type_changed;
+	} body;
+};
+
+#define VTUNER_GET_MESSAGE  1
+#define VTUNER_SET_RESPONSE 2
+#define VTUNER_SET_NAME     3
+#define VTUNER_SET_TYPE     4
+#define VTUNER_SET_HAS_OUTPUTS 5
+#define VTUNER_SET_FE_INFO  6
+#define VTUNER_SET_DELSYS   7
 
 
+class satipVtuner
+{
+	int m_fd;
+	bool m_openok;
+	fe_sec_tone_mode_t m_tone;
+	satipConfig* m_satip_cfg;
+	satipRTP* m_satip_rtp;
 
+	int AllocateVtuner();
+	int openVtuner();
+
+	void setProperty(struct vtuner_message* msg);
+	void setDiseqc(struct vtuner_message* msg);
+	void setPidList(struct vtuner_message* msg);
+
+public:
+	satipVtuner(satipConfig* satip_cfg);
+	virtual ~satipVtuner();
+	int getVtunerFd() { return m_fd; }
+	void vtunerEvent();
+	void setSatipRTP(satipRTP* satip_rtp) { m_satip_rtp = satip_rtp; }
+	bool isOpened() { return m_openok; }
+};
+
+#endif // __VTUNER_H__
