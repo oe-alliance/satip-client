@@ -54,6 +54,7 @@ typedef unsigned int   u32;
 typedef unsigned short u16;
 typedef unsigned char  u8;
 
+#if VMSG_TYPE1
 struct vtuner_message {
 	__u32 type;
 	union 
@@ -77,6 +78,63 @@ struct vtuner_message {
 		__u32 type_changed;
 	} body;
 };
+#else
+struct vtuner_message
+{
+    __s32 type;
+    union
+    {
+        struct
+        {
+            __u32	frequency;
+            __u8	inversion;
+            union
+            {
+                struct
+                {
+                    __u32	symbol_rate;
+                    __u32	fec_inner;
+                } qpsk;
+                struct
+                {
+                    __u32   symbol_rate;
+                    __u32   fec_inner;
+                    __u32	modulation;
+                } qam;
+                struct
+                {
+                    __u32	bandwidth;
+                    __u32	code_rate_HP;
+                    __u32	code_rate_LP;
+                    __u32	constellation;
+                    __u32	transmission_mode;
+                    __u32	guard_interval;
+                    __u32	hierarchy_information;
+                } ofdm;
+                struct
+                {
+                    __u32	modulation;
+                } vsb;
+            } u;
+        } fe_params;
+        struct dtv_property prop;
+        u32 status;
+        __u32 ber;
+        __u16 ss;
+        __u16 snr;
+        __u32 ucb;
+        __u8 tone;
+        __u8 voltage;
+        struct dvb_diseqc_master_cmd diseqc_master_cmd;
+        __u8 burst;
+        __u16 pidlist[30];
+        __u8  pad[72];
+        __u32 type_changed;
+    } body;
+};
+#endif
+
+
 
 #define VTUNER_GET_MESSAGE  1
 #define VTUNER_SET_RESPONSE 2
@@ -91,7 +149,11 @@ class satipVtuner
 {
 	int m_fd;
 	bool m_openok;
+#if VMSG_TYPE1
 	fe_sec_tone_mode_t m_tone;
+#else
+	__u8 m_tone;
+#endif
 	satipConfig* m_satip_cfg;
 	satipRTP* m_satip_rtp;
 
