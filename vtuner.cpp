@@ -459,6 +459,10 @@ void satipVtuner::vtunerEvent()
 			DEBUG(MSG_MAIN,"MSG_SET_FRONTEND skip..\n");
 			break;
 
+		case MSG_GET_FRONTEND:
+			DEBUG(MSG_MAIN,"MSG_GET_FRONTEND: Not implemented!\n");
+			break;
+
 		case MSG_SET_TONE:
 			m_tone = msg.body.tone;
 			DEBUG(MSG_MAIN,"MSG_SET_TONE: %s\n", m_tone == SEC_TONE_ON  ? "high" : "low");
