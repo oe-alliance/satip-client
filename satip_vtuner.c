@@ -732,6 +732,8 @@ void satip_vtuner_event(struct satip_vtuner* vt)
     if (ioctl(vt->fd, VTUNER_GET_MESSAGE, &msg))
         return;
 
+    DEBUG(MSG_MAIN,"msg_type: %d\n", msg.type);
+
     switch(msg.type)
     {
     case MSG_SET_FRONTEND:
