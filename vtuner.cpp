@@ -441,7 +441,7 @@ void satipVtuner::setDiseqc(struct vtuner_message* msg)
 void satipVtuner::setPidList(struct vtuner_message* msg)
 {
 	u16* pid_list = msg->body.pidlist;
-	m_satip_cfg->updatePidList(pid_list);	
+	m_satip_cfg->updatePidList(pid_list);
 }
 
 void satipVtuner::vtunerEvent()
@@ -451,12 +451,15 @@ void satipVtuner::vtunerEvent()
 	if (ioctl(m_fd, VTUNER_GET_MESSAGE, &msg))
 		return;
 
-	DEBUG(MSG_MAIN,"vtunerEvent msg.type : %d\n", msg.type);
-
 	switch(msg.type)
 	{
 		case MSG_SET_FRONTEND:
+#if HAVE_NO_MSG16
+			DEBUG(MSG_MAIN,"MSG_SET_PROPERTY old Mode\n");
+			setProperty(&msg);
+#else
 			DEBUG(MSG_MAIN,"MSG_SET_FRONTEND skip..\n");
+#endif
 			break;
 
 		case MSG_GET_FRONTEND:
@@ -497,7 +500,7 @@ void satipVtuner::vtunerEvent()
 
 		case MSG_READ_SIGNAL_STRENGTH:
 			//INFO(MSG_MAIN,"MSG_READ_SIGNAL_STRENGTH %d -> %d\n", msg.body.ss, rtcp_data.signalStrength);
-			if (m_satip_rtp)	
+			if (m_satip_rtp)
 				msg.body.ss = (u16)m_satip_rtp->getSignalStrenth();
 			break;
 
