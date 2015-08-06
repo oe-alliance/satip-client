@@ -162,6 +162,7 @@ int satipVtuner::openVtuner()
 	ioctl(fd, VTUNER_SET_TYPE, fe_type_str);
 	ioctl(fd, VTUNER_SET_FE_INFO, &fe_info);
 
+#if DVB_API_VERSION > 5 || DVB_API_VERSION == 5 && DVB_API_VERSION_MINOR >= 5
 	/* set delsys */
 	{
 		u32 ncaps = 0;
@@ -190,6 +191,7 @@ int satipVtuner::openVtuner()
 	//		p[0].u.buffer.len = ncaps;
 		ioctl(fd, VTUNER_SET_DELSYS, p[0].u.buffer.data);
 	}
+#endif
 
 	/* has_outputs */
 	if (ioctl(fd, VTUNER_SET_HAS_OUTPUTS, "no"))
