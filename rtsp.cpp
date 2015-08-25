@@ -301,43 +301,58 @@ int satipRTSP::handleResponseSetup()
 	com.ses.streamID: 1
 	*/
 
-	char *ptr = NULL;
-	char session_id[64];
+	char *ptr;
+	char session_id[1024];
 
 	/* get session id */
-	ptr = strstr(m_rx_data, "Session: ");
-	if (ptr == NULL)
+	ptr = strstr(m_rx_data, "Session");
+	if (!ptr)
 		return RTSP_ERROR;
 
-	if (sscanf(ptr, "Session: %s", session_id) != 1)
+	ptr = strchr(ptr, ':');
+	if (!ptr)
 		return RTSP_ERROR;
 
-	ptr = strchr(session_id, ';');
+	do {
+		ptr++;
+	} while (isspace(*ptr));
 
-	if (ptr != NULL)
-		(*ptr) = 0;
-	
+	strcpy(session_id, ptr);
+
+	ptr = session_id + strcspn(session_id, ";\n");
+	do {
+		ptr--;
+	} while (ptr >= session_id && isspace(*ptr));
+
+	*(ptr + 1) = '\0';
+
 	m_rtsp_session_id = session_id;
 
 	/* get timeout */
-	ptr = strstr(m_rx_data, "timeout=");
-	if (ptr != NULL)
+	ptr = strstr(m_rx_data, "timeout");
+	if (ptr)
 	{
-		if (sscanf(ptr, "timeout=%d", &m_rtsp_timeout) != 1)
-			return RTSP_ERROR;
+		ptr = strchr(ptr, '=');
+		if (ptr)
+		{
+			m_rtsp_timeout = strtol(ptr + 1, 0, 0);
 
-		DEBUG(MSG_MAIN, "Timeout : %d\n", m_rtsp_timeout);
+			DEBUG(MSG_MAIN, "Timeout : %d\n", m_rtsp_timeout);
+		}
 	}
 
 	/* get stream id */
-	ptr = strstr(m_rx_data, "com.ses.streamID: ");
-	if (ptr == NULL)
+	ptr = strstr(m_rx_data, "com.ses.streamID");
+	if (!ptr)
 		return RTSP_ERROR;
 
-	if (sscanf(ptr, "com.ses.streamID: %d", &m_rtsp_stream_id) != 1)
+	ptr = strchr(ptr, ':');
+	if (!ptr)
 		return RTSP_ERROR;
 
-	DEBUG(MSG_MAIN, "Session ID : %s\n", session_id);
+	m_rtsp_stream_id = strtol(ptr + 1, 0, 0);
+
+	DEBUG(MSG_MAIN, "Session ID : %s\n", m_rtsp_session_id.c_str());
 	DEBUG(MSG_MAIN, "Stream ID : %d\n", m_rtsp_stream_id);
 
 	return RTSP_RESPONSE_COMPLETE;
