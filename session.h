@@ -34,6 +34,7 @@ public:
 		virtual void run() = 0;
 		virtual void stop() = 0;
 		virtual void join() = 0;
+		virtual ~Session() {};
 };
 
 class satipSession:public Session
