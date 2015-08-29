@@ -102,6 +102,17 @@ int satipRTP::openRTP()
 			continue;
 		}
 
+		int len = 1024 * 1024;
+		if (setsockopt(rtp_sock, SOL_SOCKET, SO_RCVBUFFORCE, &len, sizeof(len)))
+			WARN(MSG_MAIN, "unable to set UDP buffer (force) size to %d\n", len);
+
+		if (setsockopt(rtp_sock, SOL_SOCKET, SO_RCVBUF, &len, sizeof(len)))
+			WARN(MSG_MAIN, "unable to set UDP buffer size to %d\n", len);
+
+		socklen_t sl = sizeof(int);
+		if (!getsockopt(rtp_sock, SOL_SOCKET, SO_RCVBUF, &len, &sl))
+			DEBUG(MSG_DATA, "UDP buffer size is %d bytes\n", len);
+
 		memset(&inaddr, 0, sizeof(inaddr));
 		inaddr.sin_family = AF_INET;
 		inaddr.sin_addr.s_addr = htonl(INADDR_ANY);
