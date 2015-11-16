@@ -136,14 +136,6 @@ struct vtuner_message
 
 
 #if VMSG_TYPE2
-#define VTUNER_GET_MESSAGE  1
-#define VTUNER_SET_RESPONSE 2
-#define VTUNER_SET_NAME     3
-#define VTUNER_SET_TYPE     4
-#define VTUNER_SET_HAS_OUTPUTS 5
-#define VTUNER_SET_FE_INFO  6
-#define VTUNER_SET_DELSYS   7
-#else
 #define VTUNER_GET_MESSAGE  11
 #define VTUNER_SET_RESPONSE 12
 #define VTUNER_SET_NAME     13
@@ -151,6 +143,14 @@ struct vtuner_message
 #define VTUNER_SET_HAS_OUTPUTS 15
 #define VTUNER_SET_FE_INFO  16
 #define VTUNER_SET_DELSYS   17
+#else
+#define VTUNER_GET_MESSAGE  1
+#define VTUNER_SET_RESPONSE 2
+#define VTUNER_SET_NAME     3
+#define VTUNER_SET_TYPE     4
+#define VTUNER_SET_HAS_OUTPUTS 5
+#define VTUNER_SET_FE_INFO  6
+#define VTUNER_SET_DELSYS   7
 #endif
 
 
