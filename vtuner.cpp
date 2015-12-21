@@ -294,7 +294,7 @@ void satipVtuner::setProperty(struct vtuner_message* msg)
 			DEBUG(MSG_MAIN,"DTV_INNER_FEC : %d\n",(int)data);
 
 			int fec = data & 31;
-			if (fec < FEC_9_10)
+			if (fec <= FEC_9_10)
 			{
 				m_satip_cfg->setFec(fec);
 			}
