@@ -105,6 +105,9 @@ void optParser::load()
 
 			else if (attr[0] == "tuner_type")
 				m_settings[index].m_fe_type = tuner_type_table[attr[1]];
+
+                        else if (attr[0] == "force_plts" && attr[1] == "1")
+                                m_settings[index].m_force_plts = true;
 		}
 	}
 }

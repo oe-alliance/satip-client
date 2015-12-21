@@ -27,10 +27,12 @@
 #include "rtp.h"
 #include "rtsp.h"
 #include "log.h"
+#include "option.h"
 
 satipSession::satipSession(const char* host,
 							const char* rtsp_port,
 							int fe_type,
+							vtunerOpt* settings,
 							int& initok):
 							m_satip_config(NULL),
 							m_satip_vtuner(NULL),
@@ -41,7 +43,7 @@ satipSession::satipSession(const char* host,
 {
 	DEBUG(MSG_MAIN,"Create SESSION.(host : %s, rtsp_port : %s, fe_type : %d\n",
 		host, rtsp_port, fe_type);
-	m_satip_config = new satipConfig(fe_type );
+	m_satip_config = new satipConfig(fe_type, settings);
 	m_satip_vtuner = new satipVtuner(m_satip_config);
 	m_satip_rtp  = new satipRTP(m_satip_vtuner->getVtunerFd());
 

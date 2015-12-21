@@ -24,9 +24,11 @@
 
 #include "config.h"
 #include "log.h"
+#include "option.h"
 
-satipConfig::satipConfig(int fe_type):
+satipConfig::satipConfig(int fe_type, vtunerOpt* settings):
 	m_fe_type(fe_type),
+	m_settings(settings),
 	m_signal_source(1),
 	m_pol(CONFIG_POL_HORIZONTAL),
 	m_status(CONFIG_STATUS_CHANNEL_INVALID),
@@ -334,6 +336,8 @@ std::string satipConfig::getTuningData()
 			}
 
 			/* rilots */
+			if(m_settings->m_force_plts)
+        m_pilot = PILOT_ON;
 			switch (m_pilot)
 			{
 				case PILOT_ON: 	oss_data << "&plts=on"; break;

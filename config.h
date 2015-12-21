@@ -24,6 +24,8 @@
 #include <string>
 #include <linux/dvb/frontend.h>
 
+#include "option.h"
+
 #define MAX_PIDS 30 // from usbtunerhelper
 
 typedef unsigned short u16;
@@ -69,7 +71,7 @@ typedef enum
 class satipConfig
 {
 public:
-	satipConfig(int fe_type);
+	satipConfig(int fe_type, vtunerOpt* settings);
 	virtual ~satipConfig();
 
 	int getFeType() {return m_fe_type;}
@@ -182,6 +184,8 @@ private:
 	t_pid_status m_pid_status;
 
 	t_lnb_onoff m_lnb_voltage_onoff;
+	
+	vtunerOpt* m_settings;
 
 	std::string getTuningData();
 };
