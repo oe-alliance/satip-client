@@ -56,18 +56,18 @@ void sessionManager::satipStart()
 			if (it->second.isAvailable())
 			{
 				DEBUG(MSG_MAIN, "try connect : [%d] type : %s, ip : %s, fe_type : %d\n", it->first, it->second.m_vtuner_type.c_str(), it->second.m_ipaddr.c_str(), it->second.m_fe_type);
-				satipSessionCreate(it->second.m_ipaddr.c_str(), it->second.m_fe_type);
+				satipSessionCreate(it->second.m_ipaddr.c_str(), it->second.m_fe_type, &(it->second));
 			}
 		}
 	}
 }
 
-int sessionManager::satipSessionCreate(const char* ipaddr, int fe_type)
+int sessionManager::satipSessionCreate(const char* ipaddr, int fe_type, vtunerOpt* settings)
 {
 	int ok = 0;
 
 	Session* session;
-	session = new satipSession( ipaddr, default_port, fe_type, ok);
+	session = new satipSession( ipaddr, default_port, fe_type, settings, ok);
 	if (!ok) 
 	{
 		DEBUG(MSG_MAIN, "Session init failed!\n");

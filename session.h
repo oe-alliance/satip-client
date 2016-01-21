@@ -23,6 +23,7 @@
 #include "rtsp.h"
 #include "rtp.h"
 #include "session.h"
+#include "option.h"
 
 #include <string>
 #include <pthread.h>
@@ -53,6 +54,7 @@ public:
 	satipSession(const char* host,
 							const char* rtsp_port,
 							int fe_type,
+							vtunerOpt* m_settings,
 							int& initok);
 
 	virtual ~satipSession();

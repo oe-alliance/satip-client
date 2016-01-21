@@ -36,7 +36,7 @@ class sessionManager
 	std::list<Session*> m_sessions;
 	optParser m_satip_opt;
 
-	int satipSessionCreate(const char* ipaddr, int fe_type);
+	int satipSessionCreate(const char* ipaddr, int fe_type, vtunerOpt* settings);
 	void addSession(Session* session) { m_sessions.push_back(session); }
 
 public:

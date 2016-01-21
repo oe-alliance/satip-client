@@ -30,8 +30,9 @@ public:
 	std::string m_vtuner_type;
 	std::string m_ipaddr;
 	int m_fe_type;
+        bool m_force_plts;
 
-	vtunerOpt():m_fe_type(-1)
+	vtunerOpt():m_fe_type(-1),m_force_plts(false)
 	{
 	}
 
