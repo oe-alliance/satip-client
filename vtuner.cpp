@@ -183,7 +183,7 @@ int satipVtuner::openVtuner()
 				break;
 
 			case FE_TYPE_TERRESTRIAL:
-				p[0].u.buffer.data[ncaps++] = SYS_DVBS;
+				p[0].u.buffer.data[ncaps++] = SYS_DVBT;
 				if (fe_info.caps & FE_CAN_2G_MODULATION)
 					p[0].u.buffer.data[ncaps++] = SYS_DVBT2;
 				break;
