@@ -377,13 +377,8 @@ void satipVtuner::setProperty(struct vtuner_message* msg)
 			break;
 		}
 
-#if DVB_API_VERSION > 5 || DVB_API_VERSION == 5 && DVB_API_VERSION_MINOR >= 9
 		case DTV_STREAM_ID:
 			DEBUG(MSG_MAIN,"DTV_STREAM_ID : %d\n",(int)data);
-#elif DVB_API_VERSION == 5 && DVB_API_VERSION_MINOR >= 3
-		case DTV_DVBT2_PLP_ID:
-			DEBUG(MSG_MAIN,"DTV_DVBT2_PLP_ID : %d\n",(int)data);
-#endif
 		{
 			unsigned int plp = (unsigned int)data;
 			m_satip_cfg->setPLP(plp);
