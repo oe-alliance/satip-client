@@ -315,36 +315,35 @@ std::string satipConfig::getTuningData()
 			default:	break;
 		}
 
-		/* for dvb-s2 */
-		if (m_msys == SYS_DVBS2)
-		{
-			/* rolloff */
-			switch (m_rolloff)
-			{
-				case ROLLOFF_35:	oss_data << "&ro=0.35"; break;
-				case ROLLOFF_20:	oss_data << "&ro=0.20"; break;
-				case ROLLOFF_25:	oss_data << "&ro=0.25"; break;
-				default:	break;
-			}
+        /* rolloff */
+        switch (m_rolloff)
+        {
+            case ROLLOFF_35:	oss_data << "&ro=0.35"; break;
+            case ROLLOFF_20:	oss_data << "&ro=0.20"; break;
+            case ROLLOFF_25:	oss_data << "&ro=0.25"; break;
+            default:            oss_data << "&ro=0.35"; break;
+        }
 
-			/* modulation type */
-			switch (m_mtype)
-			{
-				case QPSK:	oss_data << "&mtype=qpsk"; break;
-				case PSK_8:	oss_data << "&mtype=8psk"; break;
-				default:	break;
-			}
+        /* modulation type */
+        switch (m_mtype)
+        {
+            case QPSK:	oss_data << "&mtype=qpsk"; break;
+            case PSK_8:	oss_data << "&mtype=8psk"; break;
+            default:	oss_data << "&mtype=qpsk"; break;
+        }
 
-			/* rilots */
-			if(m_settings->m_force_plts)
-        m_pilot = PILOT_ON;
-			switch (m_pilot)
-			{
-				case PILOT_ON: 	oss_data << "&plts=on"; break;
-				case PILOT_OFF: oss_data << "&plts=off"; break;
-				default: break;
-			}
-		}
+        /* pilots */
+        if(m_settings->m_force_plts)
+            m_pilot = PILOT_ON;
+        else
+            m_pilot = PILOT_OFF;
+
+        switch (m_pilot)
+        {
+            case PILOT_ON: 	oss_data << "&plts=on"; break;
+            case PILOT_OFF: oss_data << "&plts=off"; break;
+            default: break;
+        }
 		
 	}
 	else if (m_fe_type == FE_TYPE_CABLE)
