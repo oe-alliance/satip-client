@@ -78,7 +78,7 @@ void satipRTSP::resetConnect()
 	m_rtsp_cseq = 1;
 	m_rtsp_session_id.clear();
 	m_rtsp_stream_id = -1;
-	m_rtsp_timeout = 30;
+    m_rtsp_timeout = 60;
 
 	m_rx_data_pos = 0;
 
@@ -546,7 +546,7 @@ int satipRTSP::sendOption()
 
 	oss_tx_data << "OPTIONS rtsp://" << m_host << ":" << m_port << "/";
 //	if (m_rtsp_stream_id != -1)
-	oss_tx_data << "stream=" << m_rtsp_stream_id;
+//	oss_tx_data << "stream=" << m_rtsp_stream_id;
 	oss_tx_data << " RTSP/1.0\r\n";
 
 	oss_tx_data << "CSeq: " << m_rtsp_cseq++ << "\r\n";
