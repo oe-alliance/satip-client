@@ -1,0 +1,17 @@
+*~
+*.o
+.deps
+_config*
+Makefile
+Makefile.in
+satipclient
+stamp-h1
+aclocal.m4
+missing
+config.log
+config.status
+configure
+autom4te.cache/
+compile
+install-sh
+depcomp
