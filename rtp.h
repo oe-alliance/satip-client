@@ -30,6 +30,7 @@ class satipRTP
 	int m_rtcp_port;
 	int m_rtcp_socket;
 	pthread_t m_thread;
+	bool m_tcp_data;
 	bool m_running;
 
 	/* rtcp data */
@@ -46,7 +47,7 @@ class satipRTP
 	int openRTP();
 
 public:
-	satipRTP(int vtuner_fd);
+	satipRTP(int vtuner_fd, int tcp_data);
 	virtual ~satipRTP();
 	int get_rtp_port() { return m_rtp_port; }
 	int get_rtp_socket() { return m_rtp_socket; }
@@ -56,6 +57,7 @@ public:
 
 	int Write(int fd, unsigned char *buffer, int size);
 	ssize_t Read(int fd, unsigned char *buffer, int size);
+	int rtpTcpData(unsigned char *data, int size);
 	void run();
 	void stop();
 

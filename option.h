@@ -29,6 +29,7 @@ class vtunerOpt
 public:
 	std::string m_vtuner_type;
 	std::string m_ipaddr;
+	bool m_tcpdata;
 	int m_fe_type;
         bool m_force_plts;
 
