@@ -19,6 +19,7 @@
 #include <string.h>
 #include <syslog.h>
 #include <stdarg.h>
+#include <time.h>
 
 #define MAX_MSGSIZE 1024
 #include "log.h"
@@ -34,9 +35,10 @@ void write_message(const unsigned int mtype, const int level, const char* fmt, .
 		char tn[MAX_MSGSIZE];
 		va_list ap;
 		va_start(ap, fmt);
-		vsnprintf(tn, sizeof(tn), fmt, ap);
+		vsnprintf(tn, sizeof(tn)-1, fmt, ap);
 		va_end(ap);
-		strncat(msg, tn, sizeof(msg));
+		strncat(msg, tn, sizeof(msg)-1);
+		msg[sizeof(tn)-1] = '\0';
 
 		if(use_syslog) {
 			int priority;
@@ -48,7 +50,9 @@ void write_message(const unsigned int mtype, const int level, const char* fmt, .
 			}
 			syslog(priority, "%s", msg);
 		} else {
-			fprintf(stderr, "%s", msg);
+			struct timespec tp;
+			clock_gettime(CLOCK_MONOTONIC_COARSE, &tp);
+			fprintf(stderr, "[%ld.%03ld]%s", (long)tp.tv_sec, (long)tp.tv_nsec / 1000000L, msg);
 		}
 	}
 
