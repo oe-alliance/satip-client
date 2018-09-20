@@ -22,6 +22,8 @@
 #include <map>
 #include <vector>
 
+#include "_config.h"
+
 bool modelCheck();
 
 class vtunerOpt
