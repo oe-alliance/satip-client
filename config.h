@@ -74,7 +74,6 @@ public:
 	satipConfig(int fe_type, vtunerOpt* settings);
 	virtual ~satipConfig();
 
-	bool isTcpData() {return m_settings->m_tcpdata;}
 	int getFeType() {return m_fe_type;}
 
 	/* vtuner property */

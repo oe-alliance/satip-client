@@ -22,7 +22,6 @@
 
 #include "timer.h"
 #include "config.h"
-#include "rtp.h"
 #include <string>
 
 enum 
@@ -51,7 +50,7 @@ public:
 	satipRTSP(satipConfig* satip_config,
 			     const char* host, 
 			     const char* rtsp_port,
-			     satipRTP *rtp);
+			     int rtp_port);
 	~satipRTSP();
 	void handleRTSPStatus();
 	int getRtspSocketFd();
@@ -67,7 +66,7 @@ public:
 private:
 	char *m_host;
 	char* m_port;
-	satipRTP *m_rtp;
+	int m_rtp_port;
 	satipConfig *m_satip_config;
 	satipTimer m_satip_timer;
 	timer_elem *m_timer_reset_connect;
@@ -75,8 +74,7 @@ private:
 	int m_fd;
 
 	char m_txbuf[1024];
-	char *m_rx_data;
-	int m_rx_data_len;
+	char m_rx_data[1024];
 	int m_rx_data_pos;
 
 	int m_rtsp_status;
@@ -93,8 +91,6 @@ private:
 	
 	void resetConnect();
 	int connectToServer();
-
-	int rtpData(size_t len);
 
 	int handleResponse();
 	int handleResponseSetup();

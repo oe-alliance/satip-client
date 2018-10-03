@@ -40,10 +40,10 @@
 satipRTSP::satipRTSP(satipConfig* satip_config,
 			     const char* host, 
 			     const char* rtsp_port,
-			     satipRTP *rtp):
+			     int rtp_port):
 			     m_host(NULL),
 			     m_port(NULL),
-			     m_rtp(rtp),
+			     m_rtp_port(rtp_port),
 			     m_satip_config(satip_config),
 			     m_timer_reset_connect(NULL),
 			     m_timer_keep_alive(NULL),
@@ -53,14 +53,7 @@ satipRTSP::satipRTSP(satipConfig* satip_config,
 			     m_rtsp_request(RTSP_REQUEST_NONE),
 			     m_wait_response(false)
 {
-	if (satip_config->isTcpData()) {
-		DEBUG(MSG_MAIN,"Create RTSP. (host : %s, port : %s, TCP data mode)\n", host, rtsp_port);
-		m_rx_data_len = 256*1024;
-	} else {
-		DEBUG(MSG_MAIN,"Create RTSP. (host : %s, port : %s, rtp_port : %d)\n", host, rtsp_port, m_rtp->get_rtp_port());
-		m_rx_data_len = 2048;
-	}
-	m_rx_data = (char *)malloc(m_rx_data_len);
+	DEBUG(MSG_MAIN,"Create RTSP. (host : %s, port : %s, rtp_port : %d)\n", host, rtsp_port, rtp_port);
 	m_host=strdup(host);
 	m_port=strdup(rtsp_port);
 
@@ -73,7 +66,6 @@ satipRTSP::satipRTSP(satipConfig* satip_config,
 satipRTSP::~satipRTSP()
 {
 	DEBUG(MSG_MAIN,"Destruct RTSP.\n");
-	free(m_rx_data);
 	free(m_host);
 	free(m_port);
 }
@@ -86,7 +78,7 @@ void satipRTSP::resetConnect()
 	m_rtsp_cseq = 1;
 	m_rtsp_session_id.clear();
 	m_rtsp_stream_id = -1;
-	m_rtsp_timeout = 60;
+    m_rtsp_timeout = 60;
 
 	m_rx_data_pos = 0;
 
@@ -183,19 +175,6 @@ int satipRTSP::connectToServer()
 		return RTSP_ERROR;
 	}
 
-	if (m_satip_config->isTcpData()) {
-		int len = 1024 * 1024;
-		if (setsockopt(fd, SOL_SOCKET, SO_RCVBUFFORCE, &len, sizeof(len)))
-			WARN(MSG_MAIN, "unable to set TCP buffer (force) size to %d\n", len);
-
-                if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &len, sizeof(len)))
-                        WARN(MSG_MAIN, "unable to set TCP buffer size to %d\n", len);
-
-                socklen_t sl = sizeof(int);
-                if (!getsockopt(fd, SOL_SOCKET, SO_RCVBUF, &len, &sl))
-                        DEBUG(MSG_DATA, "TCP buffer size is %d bytes\n", len);
-	}
-
 	freeaddrinfo(result);
 
 	m_fd = fd;
@@ -207,57 +186,25 @@ int satipRTSP::handleResponse()
 {
 	int res = RTSP_ERROR;
 	int res_code = 0;
-	size_t len = m_rx_data_len - m_rx_data_pos - 1;
-
-	if (len == 0)
-	{
-		ERROR(MSG_MAIN, "RTSP : RX buffer overflow");
-		m_rx_data_pos = 0;
-		return RTSP_ERROR;
-	}
-
-	ssize_t read_data = recv(m_fd, &(m_rx_data[m_rx_data_pos]), len, 0);
+	ssize_t read_data = recv(m_fd, &(m_rx_data[m_rx_data_pos]), sizeof(m_rx_data) - m_rx_data_pos, 0);
 
 	if (read_data == 0)
 	{
 		return RTSP_ERROR;
 	}
 
-	DEBUG(MSG_NET, "RTSP: RX %zd/%d\n", read_data, m_rx_data_pos);
-
 	m_rx_data_pos += read_data;
-
-again:
-	while (m_rx_data[0] == '$') {
-		if (!m_satip_config->isTcpData()) {
-			return RTSP_ERROR;
-		}
-		if (m_rx_data_pos < 4)
-		{
-			return RTSP_OK;
-		}
-		size_t len2 = 4 + (((unsigned char)m_rx_data[2] << 8) | (unsigned char)m_rx_data[3]);
-		if (m_rx_data_pos < len2)
-		{
-			return RTSP_OK;
-		}
-		int r = m_rtp->rtpTcpData((unsigned char *)m_rx_data, len2);
-		memmove(m_rx_data, m_rx_data + len2, m_rx_data_pos - len2);
-		m_rx_data_pos -= len2;
-		if (r)
-		{
-			return RTSP_ERROR;
-		}
-	}
-
 	m_rx_data[m_rx_data_pos] = 0;
 
-	char *s = strstr(m_rx_data, "\r\n\r\n");
-	DEBUG(MSG_NET,"RTSP rx data (%p/%i) : \n%s\n", s, m_rx_data_pos, m_rx_data);
-	if (s == NULL)
+	DEBUG(MSG_NET,"RTSP rx data : \n%s\n", m_rx_data);
+
+	if (strstr(m_rx_data, "\r\n\r\n") == NULL)
 	{
 		return RTSP_OK;
 	}
+
+	/* receive data complete */
+	m_rx_data_pos = 0;
 
 	/* set response wait to false */
 	m_wait_response = false;
@@ -266,15 +213,13 @@ again:
 	if (m_rtsp_request == RTSP_REQUEST_DESCRIBE)
 	{
 		stopTimerResetConnect();
-		res = handleResponseDescribe();
-		goto complete;
+		m_rtsp_request = RTSP_REQUEST_NONE;
+		return handleResponseDescribe();
 	}
 
 	sscanf(m_rx_data,"RTSP/%*s %d",&res_code);
-	if (res_code!=200) {
-		m_rx_data_pos = 0;
+	if (res_code!=200)
 		return RTSP_ERROR;
-	}
 
 	switch(m_rtsp_request)
 	{
@@ -332,18 +277,7 @@ again:
 		stopTimerResetConnect();
 	}
 
-complete:
-	/* receive data complete */
-	size_t len2 = m_rx_data_pos - (4 + (s - m_rx_data));
-	memmove(m_rx_data, s + 4, len2);
-	m_rx_data_pos = len2;
-	DEBUG(MSG_NET,"RTSP rx data end (%i)\n", m_rx_data_pos);
-
 	m_rtsp_request = RTSP_REQUEST_NONE;
-
-	if (len2 > 0) {
-		goto again;
-	}
 
 	return res;
 }
@@ -486,7 +420,7 @@ int satipRTSP::sendRequest(int request)
 	{
 		m_wait_response = true;
 		m_rtsp_request = request;
-		startTimerResetConnect(4000); // server connect timer start
+		startTimerResetConnect(2000); // server connect timer start
 	}
 	else
 	{
@@ -540,12 +474,7 @@ int satipRTSP::sendSetup()
 	if (!m_rtsp_session_id.empty())
 		oss_tx_data << "Session: " << m_rtsp_session_id << "\r\n";
 
-	if (m_satip_config->isTcpData()) {
-		oss_tx_data << "Transport: RTP/AVP/TCP;interleaved=0-1\r\n";
-	} else {
-		int rtp_port = m_rtp->get_rtp_port();
-		oss_tx_data << "Transport: RTP/AVP;unicast;client_port=" << rtp_port << "-" << rtp_port+1 << "\r\n";
-	}
+	oss_tx_data << "Transport: RTP/AVP;unicast;client_port=" << m_rtp_port << "-" << m_rtp_port +1 << "\r\n";
 	oss_tx_data << "\r\n";
 
 	tx_data = oss_tx_data.str();
@@ -780,10 +709,7 @@ short satipRTSP::getPollEvent()
 	switch(m_rtsp_status)
 	{
 		case RTSP_STATUS_CONFIG_WAITING:
-			if ( m_satip_config->isTcpData() ) // TCP data mode
-				events = POLLIN | POLLHUP;
-			else
-				events = 0; // no poll
+			events = 0; // no poll
 			break;
 
 		case RTSP_STATUS_SERVER_CONNECTING: // connected to serverm check if server ready to send RTSP requests.
@@ -799,8 +725,7 @@ short satipRTSP::getPollEvent()
 			break;
 
 		case RTSP_STATUS_SESSION_TRANSMITTING:
-			if ( m_rtsp_request == RTSP_REQUEST_OPTION ||  // keep alive message
-			     m_satip_config->isTcpData() )             // or TCP data mode
+			if ( m_rtsp_request == RTSP_REQUEST_OPTION) // keep alive message
 				events = POLLIN | POLLHUP;
 			else
 				events = 0; // no poll

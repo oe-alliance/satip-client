@@ -36,7 +36,7 @@
 #define PORT_BASE 45000
 #define PORT_RANGE 2000
 
-satipRTP::satipRTP(int vtuner_fd, int tcp_data)
+satipRTP::satipRTP(int vtuner_fd)
 						:m_rtp_port(-1),
 						m_rtp_socket(-1),
 						m_rtcp_port(-1),
@@ -50,14 +50,9 @@ satipRTP::satipRTP(int vtuner_fd, int tcp_data)
 {
 	DEBUG(MSG_MAIN,"Create RTP.\n");
 	m_vtuner_fd = vtuner_fd;
-	m_tcp_data = tcp_data;
-	if (tcp_data) {
-		m_openok = 1;
-	} else {
-		m_openok = !openRTP();
-		if (!m_openok)
-			DEBUG(MSG_MAIN,"Create RTP failed.\n");
-	}
+	m_openok = !openRTP();
+	if (!m_openok)
+		DEBUG(MSG_MAIN,"Create RTP failed.\n");
 }
 
 satipRTP::~satipRTP()
@@ -340,28 +335,6 @@ void* satipRTP::rtpDump()
 	return 0;
 }
 
-int satipRTP::rtpTcpData(unsigned char *data, int size)
-{
-        if (size <= 4 + 12)
-        {
-                return 0;
-        }
-
-        if (data[1] == 0)
-        {
-                int wr = Write(m_vtuner_fd, data + 4 + 12, size - 4 - 12);
-                DEBUG(MSG_DATA, "RTP TCP DATA : read %d bytes, write %d bytes\n", size - 4, wr);
-        }
-        else if (data[1] == 1)
-        {
-                DEBUG(MSG_DATA,"RTCP TCP DATA : read %d bytes\n", size - 4);
-                rtcpData(data + 4, size - 4);
-
-        }
-
-        return 0;
-}
-
 void *satipRTP::thread_wrapper(void *ptr)
 {
 	return ((satipRTP*)ptr)->rtpDump();
@@ -370,8 +343,7 @@ void *satipRTP::thread_wrapper(void *ptr)
 void satipRTP::run()
 {
 	m_running = true;
-	if (!m_tcp_data)
-		pthread_create( &m_thread, NULL, thread_wrapper, this);
+	pthread_create( &m_thread, NULL, thread_wrapper, this);
 }
 
 void satipRTP::stop()

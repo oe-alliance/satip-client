@@ -103,9 +103,6 @@ void optParser::load()
 			else if (attr[0] == "ipaddr")
 				m_settings[index].m_ipaddr = attr[1];
 
-			else if (attr[0] == "tcpdata" && attr[1] == "1")
-				m_settings[index].m_tcpdata = true;
-
 			else if (attr[0] == "tuner_type")
 				m_settings[index].m_fe_type = tuner_type_table[attr[1]];
 
