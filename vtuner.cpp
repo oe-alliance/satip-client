@@ -115,7 +115,8 @@ int satipVtuner::openVtuner()
 			fe_info.caps=(fe_caps_t)(FE_CAN_INVERSION_AUTO |
 						FE_CAN_FEC_1_2 | FE_CAN_FEC_2_3 | FE_CAN_FEC_3_4 | FE_CAN_FEC_4_5 |
 						FE_CAN_FEC_5_6 | FE_CAN_FEC_7_8 | FE_CAN_FEC_8_9 |
-						FE_CAN_QPSK | FE_CAN_RECOVER | FE_CAN_2G_MODULATION);
+						FE_CAN_QPSK | FE_CAN_RECOVER | FE_CAN_2G_MODULATION |
+						FE_CAN_MULTISTREAM);
 			break;
 
 		case FE_TYPE_CABLE:
@@ -162,7 +163,7 @@ int satipVtuner::openVtuner()
 	ioctl(fd, VTUNER_SET_TYPE, fe_type_str);
 	ioctl(fd, VTUNER_SET_FE_INFO, &fe_info);
 
-#if DVB_API_VERSION > 5 || DVB_API_VERSION == 5 && DVB_API_VERSION_MINOR >= 5
+#if DVB_VER_ATLEAST(5, 5)
 	/* set delsys */
 	{
 		u32 ncaps = 0;
@@ -229,6 +230,7 @@ error:
 	DTV_BANDWIDTH_HZ
 	DTV_STREAM_ID or DTV_DVBT2_PLP_ID
 	DTV_INVERSION	
+	DTV_SCRAMBLING_SEQUENCE_INDEX
 */
 void satipVtuner::setProperty(struct vtuner_message* msg)
 {
@@ -390,6 +392,17 @@ void satipVtuner::setProperty(struct vtuner_message* msg)
 			DEBUG(MSG_MAIN,"DTV_INVERSION skip..\n");
 			break;
 		}
+
+#if DVB_VER_ATLEAST(5, 11)
+		case DTV_SCRAMBLING_SEQUENCE_INDEX:
+			DEBUG(MSG_MAIN,"DTV_SCRAMBLING_SEQUENCE_INDEX : %d\n",(int)data);
+		{
+			unsigned int pls_code = (unsigned int)data;
+			m_satip_cfg->setPLScode(pls_code);
+			break;
+		}
+
+#endif
 
 		default:
 			break;

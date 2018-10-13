@@ -29,6 +29,11 @@
 #include <linux/dvb/frontend.h>
 #include <linux/dvb/dmx.h>
 
+#define DVB_VER_INT(maj,min) (((maj) << 16) + (min))
+
+#define DVB_VER_ATLEAST(maj, min) \
+ (DVB_VER_INT(DVB_API_VERSION,  DVB_API_VERSION_MINOR) >= DVB_VER_INT(maj, min))
+
 #define MSG_SET_FRONTEND			1
 #define MSG_GET_FRONTEND			2
 #define MSG_READ_STATUS				3
