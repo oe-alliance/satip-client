@@ -45,8 +45,7 @@ satipConfig::satipConfig(int fe_type, vtunerOpt* settings):
 	m_pol(CONFIG_POL_HORIZONTAL),
 	m_status(CONFIG_STATUS_CHANNEL_INVALID),
 	m_pid_status(CONFIG_STATUS_PID_STATIONARY),
-	m_lnb_voltage_onoff(CONFIG_LNB_OFF),
-	m_tcpdata(0)
+	m_lnb_voltage_onoff(CONFIG_LNB_OFF)
 {
 	for (int i = 0; i < MAX_PIDS; i++)
 	{
