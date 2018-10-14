@@ -26,6 +26,18 @@
 #include "log.h"
 #include "option.h"
 
+static uint32_t pls_root2gold(uint32_t root)
+{
+	uint32_t x, g;
+
+	for (g = 0, x = 1; g < 0x3ffff; g++)  {
+		if (root == x)
+			return g;
+		x = (((x ^ (x >> 7)) & 1) << 17) | (x >> 1);
+	}
+	return 0x3ffff;
+}
+
 satipConfig::satipConfig(int fe_type, vtunerOpt* settings):
 	m_fe_type(fe_type),
 	m_settings(settings),
@@ -65,6 +77,7 @@ void satipConfig::clearProperty()
 	m_guard_interval = GUARD_INTERVAL_AUTO;
 	m_bandwidth = 0; /* AUTO */
 	m_plpid = 0;
+	m_pls_code = 0;
 
 	clearPidList();
 }
@@ -344,7 +357,26 @@ std::string satipConfig::getTuningData()
             case PILOT_OFF: oss_data << "&plts=off"; break;
             default: break;
         }
-		
+
+		if (m_msys == SYS_DVBS2)
+		{
+			unsigned int _pls_code = m_pls_code;
+			if (m_plpid > 0 && m_plpid != NO_STREAM_ID_FILTER) {
+				/* input stream identificator (isi) */
+				oss_data << "&isi=" << (m_plpid & 0xFF);
+				/* old format */
+				if (m_plpid > 255) {
+					unsigned int mode = (m_plpid >> 26) & 3;
+					_pls_code = (m_plpid >> 8) & 0x3FFFF;
+					if (mode == 0) /* ROOT - convert to GOLD */
+						_pls_code = pls_root2gold(_pls_code);
+				}
+			}
+			if (_pls_code > 0) {
+				/* pls code */
+				oss_data << "&plsc=" << _pls_code;
+			}
+		}
 	}
 	else if (m_fe_type == FE_TYPE_CABLE)
 	{
@@ -451,8 +483,10 @@ std::string satipConfig::getTuningData()
 
 		if (m_msys == SYS_DVBT2)
 		{
-			/* plp id */
-			oss_data << "&plp=" << m_plpid;
+			if (m_plpid != NO_STREAM_ID_FILTER) {
+				/* plp id */
+				oss_data << "&plp=" << m_plpid;
+			}
 
 			/* t2 system id */
 			/* siso / miso */

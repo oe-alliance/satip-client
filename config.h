@@ -131,6 +131,10 @@ public:
 	{ 
 		m_plpid = plpid;
 	}
+	void setPLScode(int pls_code)
+	{
+		m_pls_code = pls_code;
+	}
 
 	/* channel, pid status */
 	t_channel_status getChannelStatus();
@@ -179,6 +183,7 @@ private:
 	int m_guard_interval;
 	int m_bandwidth;
 	int m_plpid;
+	int m_pls_code; // gold
 
 	t_channel_status m_status;
 	t_pid_status m_pid_status;
