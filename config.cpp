@@ -20,6 +20,9 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#ifndef __uint32_t_defined
+#include <stdint.h>
+#endif
 #include <sstream> // std::ostringstream
 
 #include "config.h"
