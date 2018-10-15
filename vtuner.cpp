@@ -25,6 +25,7 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 #include <fcntl.h>
 
@@ -35,6 +36,42 @@
 #include "rtp.h"
 
 const char* vtuner_path = "/dev/misc/vtuner";
+
+static inline timespec operator-( const timespec &t1, const timespec &t2 )
+{
+	timespec tmp;
+	tmp.tv_sec = t1.tv_sec - t2.tv_sec;
+	if ( (tmp.tv_nsec = t1.tv_nsec - t2.tv_nsec) < 0 )
+	{
+		tmp.tv_sec--;
+		tmp.tv_nsec += 1000000000;
+	}
+	return tmp;
+}
+
+static inline timespec &operator+=( timespec &t1, const long msek )
+{
+	t1.tv_sec += msek / 1000;
+	if ( (t1.tv_nsec += (msek % 1000) * 1000000) >= 1000000000 )
+	{
+		t1.tv_sec++;
+		t1.tv_nsec -= 1000000000;
+	}
+	return t1;
+}
+
+static inline int64_t timeout_msec ( const timespec & orig, const timespec &now )
+{
+	const timespec tv = orig - now;
+	return (int64_t)tv.tv_sec * 1000 + tv.tv_nsec / 1000000;
+}
+
+static inline int64_t timeout_msec ( const timespec & orig )
+{
+	timespec now;
+	clock_gettime(CLOCK_MONOTONIC, &now);
+	return timeout_msec(orig, now);
+}
 
 satipVtuner::satipVtuner(satipConfig* satip_cfg)
 	:m_fd(-1), m_openok(false), m_tone(SEC_TONE_OFF)
@@ -481,6 +518,7 @@ void satipVtuner::vtunerEvent()
 #else
 			DEBUG(MSG_MAIN,"MSG_SET_FRONTEND skip..\n");
 #endif
+			++tune_tries;
 			break;
 
 		case MSG_GET_FRONTEND:
@@ -504,15 +542,16 @@ void satipVtuner::vtunerEvent()
 			break;
 
 		case MSG_READ_STATUS:
+			msg.body.status = 0;
 			//INFO(MSG_MAIN,"MSG_READ_STATUS\n");
-//				if (m_satip_rtp)
-//				{
-//					if (m_satip_rtp->getHasLock())
-//						msg.body.status = FE_HAS_LOCK;
-//					else
-//						msg.body.status = 0;
-//				}
-			msg.body.status = FE_HAS_LOCK;
+			if (m_satip_rtp && m_satip_rtp->getHasLock())
+				msg.body.status = FE_HAS_LOCK;
+			else {
+				if (timeout_msec(timeout) < 0)
+					msg.body.status |= FE_TIMEDOUT;
+				if (tune_tries & 4)
+					msg.body.status |= FE_HAS_SIGNAL;
+			}
 			break;
 		case MSG_READ_BER:
 			//INFO(MSG_MAIN,"MSG_READ_BER\n");
@@ -522,13 +561,13 @@ void satipVtuner::vtunerEvent()
 		case MSG_READ_SIGNAL_STRENGTH:
 			//INFO(MSG_MAIN,"MSG_READ_SIGNAL_STRENGTH %d -> %d\n", msg.body.ss, rtcp_data.signalStrength);
 			if (m_satip_rtp)
-				msg.body.ss = (u16)m_satip_rtp->getSignalStrenth();
+				msg.body.ss = (u16)m_satip_rtp->getSignalStrength();
 			break;
 
 		case MSG_READ_SNR:
 			//INFO(MSG_MAIN,"MSG_READ_SNR %d -> %d\n", msg.body.snr, m_satip_cfg->satip_get_signal_quality());
 			if (m_satip_rtp)
-				msg.body.snr = (u16)m_satip_rtp->getSignalSNR();
+				msg.body.snr = (u16)m_satip_rtp->getSignalStrength() * (u16)m_satip_rtp->getSignalQuality() / 65535;
 			break;
 
 		case MSG_READ_UCBLOCKS:
@@ -565,6 +604,19 @@ void satipVtuner::vtunerEvent()
 
 		case MSG_GET_PROPERTY:
 			DEBUG(MSG_MAIN,"MSG_GET_PROPERTY\n");
+			break;
+
+		case MSG_GET_TUNE_SETTINGS:
+			DEBUG(MSG_MAIN,"MSG_GET_TUNE_SETTINGS\n");
+			if (m_satip_rtp) {
+				m_satip_rtp->unset();
+			}
+			tune_tries = 0;
+			clock_gettime(CLOCK_MONOTONIC, &timeout);
+			timeout += 3000;
+			msg.body.tune_settings.min_delay_ms = 50; // let linux-tv api ask every 50ms for locked/unlocked state...
+			msg.body.tune_settings.step_size = 0;
+			msg.body.tune_settings.max_drift = 0;
 			break;
 
 		default:

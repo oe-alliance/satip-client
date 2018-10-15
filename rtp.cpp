@@ -43,7 +43,7 @@ satipRTP::satipRTP(int vtuner_fd, int tcp_data)
 						m_rtcp_socket(-1),
 						m_thread(0),
 						m_running(false),
-						m_hasLock(true),
+						m_hasLock(false),
 						m_signalStrength(0),
 						m_signalQuality(0),
 						m_openok(false)
@@ -70,6 +70,13 @@ satipRTP::~satipRTP()
 
 	if (m_rtp_socket)
 		close(m_rtp_socket);
+}
+
+void satipRTP::unset()
+{
+	m_signalStrength = 0;
+	m_hasLock = false;
+	m_signalQuality = 0;
 }
 
 int satipRTP::openRTP()
@@ -107,7 +114,7 @@ int satipRTP::openRTP()
 			continue;
 		}
 
-		int len = 1024 * 1024;
+		int len = 4 * 1024 * 1024;
 		if (setsockopt(rtp_sock, SOL_SOCKET, SO_RCVBUFFORCE, &len, sizeof(len)))
 			WARN(MSG_MAIN, "unable to set UDP buffer (force) size to %d\n", len);
 
@@ -159,9 +166,7 @@ void satipRTP::parseRtcpAppPayload(char *buffer)
 		quality (Signal quality) : Numerical value between 0 and 15
 	*/
 
-	m_signalStrength = 0;
-	m_hasLock = false;
-	m_signalQuality = 0;
+	unset();
 
 	char *strp = strstr(buffer, ";tuner=");
 	if (strp)
@@ -170,7 +175,7 @@ void satipRTP::parseRtcpAppPayload(char *buffer)
 		strp = strstr(strp, ",");
 		sscanf(strp, ",%d,%d,%d,%*s", &level, &lock, &quality);
 
-		m_signalStrength = (level >= 0) ? (level * 65535 / 255) : 0x12345678;
+		m_signalStrength = (level >= 0) ? (level * 65535 / 255) : 0;
 		m_hasLock = !!lock;
 		m_signalQuality = (m_hasLock && (quality >= 0)) ? (quality * 65535 / 15) : 0;
 
