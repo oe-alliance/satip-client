@@ -41,7 +41,7 @@ void optParser::dump()
 	std::map<int, vtunerOpt>::iterator it;
 	for (it = m_settings.begin(); it!=m_settings.end(); it++)
 	{
-		DEBUG(MSG_MAIN, "[%d] tuner type : %s, ip : %s, fe_type : %d\n", it->first, it->second.m_vtuner_type.c_str(), it->second.m_ipaddr.c_str(), it->second.m_fe_type);
+		DEBUG(MSG_MAIN, "[%d] tuner type : %s, ip : %s, fe_type : %d, fe_number : %d\n", it->first, it->second.m_vtuner_type.c_str(), it->second.m_ipaddr.c_str(), it->second.m_fe_type, it->second.m_fe_number);
 	}
 }
 
@@ -109,8 +109,10 @@ void optParser::load()
 			else if (attr[0] == "tuner_type")
 				m_settings[index].m_fe_type = tuner_type_table[attr[1]];
 
-                        else if (attr[0] == "force_plts" && attr[1] == "1")
-                                m_settings[index].m_force_plts = true;
+            else if (attr[0] == "force_plts" && attr[1] == "1")
+                m_settings[index].m_force_plts = true;
+            else if (attr[0] == "fe")
+                m_settings[index].m_fe_number = atoi(attr[1].c_str());
 		}
 	}
 }

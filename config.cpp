@@ -286,6 +286,9 @@ std::string satipConfig::getTuningData()
 	std::string data;
 	std::ostringstream oss_data;
 
+	if (m_settings->m_fe_number > 0)
+		oss_data << "&fe=" << m_settings->m_fe_number;
+
 	if (m_fe_type == FE_TYPE_SAT)
 	{
 		oss_data << "&src=" << m_signal_source;
