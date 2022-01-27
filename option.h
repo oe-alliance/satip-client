@@ -33,9 +33,10 @@ public:
 	std::string m_ipaddr;
 	bool m_tcpdata;
 	int m_fe_type;
-        bool m_force_plts;
+	int m_fe_number;
+	bool m_force_plts;
 
-	vtunerOpt():m_tcpdata(0),m_fe_type(-1),m_force_plts(false)
+	vtunerOpt():m_tcpdata(0),m_fe_type(-1),m_fe_number(0),m_force_plts(false)
 	{
 	}
 
