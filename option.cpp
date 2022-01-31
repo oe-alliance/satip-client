@@ -35,7 +35,7 @@ optParser::~optParser()
 {
 
 }
-
+	
 void optParser::dump()
 {
 	std::map<int, vtunerOpt>::iterator it;
@@ -108,11 +108,12 @@ void optParser::load()
 
 			else if (attr[0] == "tuner_type")
 				m_settings[index].m_fe_type = tuner_type_table[attr[1]];
-
-            else if (attr[0] == "force_plts" && attr[1] == "1")
-                m_settings[index].m_force_plts = true;
-            else if (attr[0] == "fe")
-                m_settings[index].m_fe_number = atoi(attr[1].c_str());
+                        else if (attr[0] == "force_plts" && attr[1] == "1")
+                                m_settings[index].m_force_plts = true;
+                        else if (attr[0] == "fe")
+                                m_settings[index].m_fe_number = atoi(attr[1].c_str());
+			else if (attr[0] == "port")
+				m_settings[index].m_port = attr[1];
 		}
 	}
 }

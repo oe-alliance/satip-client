@@ -35,6 +35,7 @@ public:
 	int m_fe_type;
 	int m_fe_number;
 	bool m_force_plts;
+        std::string m_port;
 
 	vtunerOpt():m_tcpdata(0),m_fe_type(-1),m_fe_number(0),m_force_plts(false)
 	{
