@@ -273,11 +273,10 @@ again:
 	sscanf(m_rx_data,"RTSP/%*s %d",&res_code);
 	if (res_code!=200) {
 		m_rx_data_pos = 0;
-		return RTSP_ERROR;
-	}
-
-	switch(m_rtsp_request)
-	{
+		res = RTSP_ERROR;
+	} else {
+	    switch(m_rtsp_request)
+	    {
 		case RTSP_REQUEST_NONE:
 			DEBUG(MSG_NET,"response skip..\n");
 			break;
@@ -297,8 +296,9 @@ again:
 		case RTSP_REQUEST_TEARDOWN:
 			res = handleResponseTeardown();
 			break;
-		default:
-			break;
+	  	default:
+	    		break;
+	    }
 	}
 
 	if(res == RTSP_ERROR)
