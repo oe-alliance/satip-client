@@ -326,6 +326,7 @@ again:
 				break;
 		}
 		resetConnect();
+		return res;
 	}
 
 	else if (res == RTSP_RESPONSE_COMPLETE)
