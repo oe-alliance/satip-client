@@ -241,6 +241,7 @@ again:
 		{
 			return RTSP_OK;
 		}
+		startTimerResetConnect(4000);
 		int r = m_rtp->rtpTcpData((unsigned char *)m_rx_data, len2);
 		memmove(m_rx_data, m_rx_data + len2, m_rx_data_pos - len2);
 		m_rx_data_pos -= len2;
@@ -325,6 +326,7 @@ again:
 				break;
 		}
 		resetConnect();
+		return res;
 	}
 
 	else if (res == RTSP_RESPONSE_COMPLETE)
