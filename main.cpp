@@ -115,12 +115,10 @@ int main(int argc, char** argv)
 
 	signal(SIGINT, sigint_handler);
 	signal(SIGTERM, sigint_handler);
-	signal(SIGKILL, sigint_handler);
 
 	sessionManager* vtmng = sessionManager::getInstance();
-	int res = vtmng->satipStart();
-	if (!res)
-		pause();
+	vtmng->satipStart();
+	pause();
 
 	DEBUG(MSG_MAIN,"End MAIN\n");
 

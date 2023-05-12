@@ -45,22 +45,21 @@ sessionManager::~sessionManager()
 	}
 }
 
-int sessionManager::satipStart()
+void sessionManager::satipStart()
 {
-	if (m_satip_opt.isEmpty())
-		return -1;
-
-	std::map<int, vtunerOpt> *data = m_satip_opt.getData();
-	for (std::map<int, vtunerOpt>::iterator it(data->begin()); it!=data->end(); it++)
+	if (!m_satip_opt.isEmpty())
 	{
-		if (it->second.isAvailable())
+		std::map<int, vtunerOpt> *data = m_satip_opt.getData();
+
+		for (std::map<int, vtunerOpt>::iterator it(data->begin()); it!=data->end(); it++)
 		{
-			DEBUG(MSG_MAIN, "try connect : [%d] type : %s, ip : %s, fe_type : %d\n", it->first, it->second.m_vtuner_type.c_str(), it->second.m_ipaddr.c_str(), it->second.m_fe_type);
-			satipSessionCreate(it->second.m_ipaddr.c_str(), it->second.m_fe_type);
+			if (it->second.isAvailable())
+			{
+				DEBUG(MSG_MAIN, "try connect : [%d] type : %s, ip : %s, fe_type : %d\n", it->first, it->second.m_vtuner_type.c_str(), it->second.m_ipaddr.c_str(), it->second.m_fe_type);
+				satipSessionCreate(it->second.m_ipaddr.c_str(), it->second.m_fe_type, it->second.m_port.c_str(), &(it->second));
+			}
 		}
 	}
-
-	return 0;
 }
 
 int sessionManager::satipSessionCreate(const char* ipaddr, int fe_type, const char *port, vtunerOpt* settings)
