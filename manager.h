@@ -43,7 +43,7 @@ public:
 	sessionManager();
 	virtual ~sessionManager();
 
-	void satipStart();
+	int satipStart();
 	void sessionStart();
 	void sessionJoin();
 	void sessionStop();
