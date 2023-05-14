@@ -443,8 +443,8 @@ std::string satipConfig::getTuningData()
 		switch (m_transmode)
 		{
 			case TRANSMISSION_MODE_2K:	oss_data << "&tmode=2k"; break;
-			case TRANSMISSION_MODE_8K:	oss_data << "&tmode=4k"; break;
-			case TRANSMISSION_MODE_4K:	oss_data << "&tmode=8k"; break;
+			case TRANSMISSION_MODE_8K:	oss_data << "&tmode=8k"; break;
+			case TRANSMISSION_MODE_4K:	oss_data << "&tmode=4k"; break;
 			case TRANSMISSION_MODE_1K:	oss_data << "&tmode=1k"; break;
 			case TRANSMISSION_MODE_16K:	oss_data << "&tmode=16k"; break;
 			case TRANSMISSION_MODE_32K:	oss_data << "&tmode=32k"; break;
