@@ -455,7 +455,7 @@ void satipVtuner::setDiseqc(struct vtuner_message* msg)
 	{
 		/* committed switch */
 		u8 data=cmd->msg[3];
-		int voltage;
+		int voltage = -1;
 
 		if ( (data & 0x01) == 0x01 )
 		{
@@ -481,13 +481,12 @@ void satipVtuner::setDiseqc(struct vtuner_message* msg)
 		m_satip_cfg->setPosition(position);
 
 		DEBUG(MSG_MAIN,"SEC_TONE : %s, SEC_VOLTAGE : %s, pos : %d\n", m_tone == SEC_TONE_ON ? "ON" : "OFF",
-			voltage == SEC_VOLTAGE_13 ? "V" : "H", position);
+			voltage == SEC_VOLTAGE_13 ? "V" : voltage == SEC_VOLTAGE_18 ? "H" : "?", position);
 	}
 	else if ( cmd->msg[0] == 0xe0 && cmd->msg[1] == 0x10 && cmd->msg[2] == 0x39 && cmd->msg_len == 4 )
 	{
 		/* uncommitted switch */
 		u8 data=cmd->msg[3];
-		int voltage;
 
 		int position = (data & 0x0F) + 1;
 		m_satip_cfg->setPosition(position);

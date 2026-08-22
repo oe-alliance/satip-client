@@ -43,12 +43,12 @@ static uint32_t pls_root2gold(uint32_t root)
 
 satipConfig::satipConfig(int fe_type, vtunerOpt* settings):
 	m_fe_type(fe_type),
-	m_settings(settings),
 	m_signal_source(1),
 	m_pol(CONFIG_POL_HORIZONTAL),
 	m_status(CONFIG_STATUS_CHANNEL_INVALID),
 	m_pid_status(CONFIG_STATUS_PID_STATIONARY),
-	m_lnb_voltage_onoff(CONFIG_LNB_OFF)
+	m_lnb_voltage_onoff(CONFIG_LNB_OFF),
+	m_settings(settings)
 {
 	for (int i = 0; i < MAX_PIDS; i++)
 	{
@@ -367,7 +367,7 @@ std::string satipConfig::getTuningData()
 		if (m_msys == SYS_DVBS2)
 		{
 			unsigned int _pls_code = m_pls_code;
-			if (m_plpid > 0 && m_plpid != NO_STREAM_ID_FILTER) {
+			if (m_plpid > 0 && (unsigned int)m_plpid != NO_STREAM_ID_FILTER) {
 				/* input stream identificator (isi) */
 				oss_data << "&isi=" << (m_plpid & 0xFF);
 				/* old format */
@@ -489,7 +489,7 @@ std::string satipConfig::getTuningData()
 
 		if (m_msys == SYS_DVBT2)
 		{
-			if (m_plpid != NO_STREAM_ID_FILTER) {
+			if ((unsigned int)m_plpid != NO_STREAM_ID_FILTER) {
 				/* plp id */
 				oss_data << "&plp=" << m_plpid;
 			}

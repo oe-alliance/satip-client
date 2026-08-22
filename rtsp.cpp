@@ -237,7 +237,7 @@ again:
 			return RTSP_OK;
 		}
 		size_t len2 = 4 + (((unsigned char)m_rx_data[2] << 8) | (unsigned char)m_rx_data[3]);
-		if (m_rx_data_pos < len2)
+		if ((size_t)m_rx_data_pos < len2)
 		{
 			return RTSP_OK;
 		}

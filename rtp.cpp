@@ -381,11 +381,6 @@ void satipRTP::run()
 
 void satipRTP::stop()
 {
-	if (m_rtcp_socket != -1)
-	{
-		write(m_rtcp_socket, "end", 4);
-	}
-
 	m_running = false;
 	if (m_thread)
 	{

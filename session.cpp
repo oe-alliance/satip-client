@@ -41,8 +41,6 @@ satipSession::satipSession(const char* host,
 							m_session_thread(0),
 							m_running(false)
 {
-	int rtp_port;
-
 	DEBUG(MSG_MAIN,"Create SESSION.(host : %s, rtsp_port : %s, fe_type : %d\n",
 		host, rtsp_port, fe_type);
 	m_satip_config = new satipConfig(fe_type, settings);
