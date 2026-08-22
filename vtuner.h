@@ -25,6 +25,7 @@
 
 #define VTUNER_PIDLIST_LEN 30 // from usbtunerhelper
 
+#include <linux/ioctl.h>
 #include <linux/dvb/version.h>
 #include <linux/dvb/frontend.h>
 #include <linux/dvb/dmx.h>
@@ -150,7 +151,16 @@ struct vtuner_message
 #endif
 
 
-#if VMSG_TYPE2
+/*
+ * The vtuner interface does not use the ioctl macros, so its numbers 1 and 2
+ * collide with the kernel bmap ioctls wherever _IOC_NONE is zero, which is
+ * the case on arm, aarch64 and x86 but not on mips. Where they collide, the
+ * driver expects the higher numbers. Detecting that here saves adding every
+ * new platform to the boxtype list in configure.ac; the list still wins where
+ * it is set, so boxes that are known to need the high numbers keep them on
+ * any architecture.
+ */
+#if defined(VMSG_TYPE2) || (defined(_IOC_NONE) && _IOC_NONE == 0)
 #define VTUNER_GET_MESSAGE  11
 #define VTUNER_SET_RESPONSE 12
 #define VTUNER_SET_NAME     13
