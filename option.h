@@ -20,6 +20,7 @@
 
 #include <string>
 #include <map>
+#include <set>
 #include <vector>
 
 #include "_config.h"
@@ -37,7 +38,15 @@ public:
 	bool m_force_plts;
         std::string m_port;
 
-	vtunerOpt():m_tcpdata(0),m_fe_type(-1),m_fe_number(0),m_force_plts(false)
+	/* request ecm/emm pids for the active services (see psi.h) */
+	bool m_ca_pids;
+	/* also request the CAT and the emm pids it announces */
+	bool m_ca_emm;
+	/* only request ca pids of these caids, empty = all of them */
+	std::set<int> m_ca_caids;
+
+	vtunerOpt():m_tcpdata(0),m_fe_type(-1),m_fe_number(0),m_force_plts(false),
+		m_ca_pids(false),m_ca_emm(true)
 	{
 	}
 

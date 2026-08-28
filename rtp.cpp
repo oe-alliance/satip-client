@@ -29,6 +29,7 @@
 #include <errno.h>
 
 #include "rtp.h"
+#include "psi.h"
 #include "log.h"
 
 //#define BUFFER_SIZE ((188 / 4) * 4096) /* multiple of ts packet and page size */
@@ -46,7 +47,8 @@ satipRTP::satipRTP(int vtuner_fd, int tcp_data)
 						m_hasLock(false),
 						m_signalStrength(0),
 						m_signalQuality(0),
-						m_openok(false)
+						m_openok(false),
+						m_psi(NULL)
 {
 	DEBUG(MSG_MAIN,"Create RTP.\n");
 	m_vtuner_fd = vtuner_fd;
@@ -255,7 +257,6 @@ int satipRTP::Write(int fd, unsigned char *buffer, int size)
 		{
 			if( errno == EINTR )
 			{
-				DEBUG(MSG_MAIN, "WRITE : raise EINTR..continue.\n");
 				continue;
 			}
 
@@ -327,6 +328,9 @@ void* satipRTP::rtpDump()
 			{
 				wr_bytes= Write(m_vtuner_fd ,&rx_data[12], rx_bytes-12);
 				DEBUG(MSG_DATA, "RTP DATA : read %d bytes, write %d bytes\n", rx_bytes, wr_bytes);
+
+				if (m_psi)
+					m_psi->processTS(&rx_data[12], rx_bytes-12);
 			}
 		}
 
@@ -356,6 +360,9 @@ int satipRTP::rtpTcpData(unsigned char *data, int size)
         {
                 int wr = Write(m_vtuner_fd, data + 4 + 12, size - 4 - 12);
                 DEBUG(MSG_DATA, "RTP TCP DATA : read %d bytes, write %d bytes\n", size - 4, wr);
+
+                if (m_psi)
+                        m_psi->processTS(data + 4 + 12, size - 4 - 12);
         }
         else if (data[1] == 1)
         {

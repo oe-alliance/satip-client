@@ -22,6 +22,8 @@
 
 #include <pthread.h>
 
+class satipPSI;
+
 class satipRTP
 {
 	int m_vtuner_fd;;
@@ -46,10 +48,13 @@ class satipRTP
 	bool m_openok;
 	int openRTP();
 
+	satipPSI* m_psi;
+
 public:
 	satipRTP(int vtuner_fd, int tcp_data);
 	virtual ~satipRTP();
 	void unset();
+	void setPSI(satipPSI* psi) { m_psi = psi; }
 	int get_rtp_port() { return m_rtp_port; }
 	int get_rtp_socket() { return m_rtp_socket; }
 	int get_rtcp_port() { return m_rtcp_port; }

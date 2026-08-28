@@ -23,11 +23,35 @@
 #ifndef __uint32_t_defined
 #include <stdint.h>
 #endif
+#include <unistd.h>
 #include <sstream> // std::ostringstream
 
 #include "config.h"
 #include "log.h"
 #include "option.h"
+#include "psi.h"
+
+std::string joinNumbers(const std::set<int>& values, bool hex)
+{
+	std::ostringstream oss;
+	for (std::set<int>::const_iterator it = values.begin(); it != values.end(); ++it)
+	{
+		if (it != values.begin())
+			oss << ',';
+
+		if (hex)
+		{
+			char buf[16];
+			snprintf(buf, sizeof(buf), "0x%04x", *it);
+			oss << buf;
+		}
+		else
+		{
+			oss << *it;
+		}
+	}
+	return oss.str();
+}
 
 static uint32_t pls_root2gold(uint32_t root)
 {
@@ -50,6 +74,12 @@ satipConfig::satipConfig(int fe_type, vtunerOpt* settings):
 	m_lnb_voltage_onoff(CONFIG_LNB_OFF),
 	m_settings(settings)
 {
+	m_psi = NULL;
+	m_ca_dirty = false;
+	m_wakeup_fd = -1;
+
+	pthread_mutex_init(&m_ca_lock, NULL);
+
 	for (int i = 0; i < MAX_PIDS; i++)
 	{
 		m_pid_list[i].status = PID_INVALID;
@@ -57,11 +87,20 @@ satipConfig::satipConfig(int fe_type, vtunerOpt* settings):
 	}
 
 	clearProperty();
+
+	/* keep this last, the parser reports its initial pid set to us right away */
+	if (settings->m_ca_pids)
+		m_psi = new satipPSI(this, settings->m_ca_emm, settings->m_ca_caids, settings->m_fe_number);
 }
 
 satipConfig::~satipConfig()
 {
 	DEBUG(MSG_MAIN,"Destruct satipConfig.\n");
+
+	if (m_psi)
+		delete m_psi;
+
+	pthread_mutex_destroy(&m_ca_lock);
 }
 
 void satipConfig::clearProperty()
@@ -83,6 +122,11 @@ void satipConfig::clearProperty()
 	m_pls_code = 0;
 
 	clearPidList();
+	m_requested_pids.clear();
+
+	/* retune, everything we derived from the old transponder is void */
+	if (m_psi)
+		m_psi->reset();
 }
 
 void satipConfig::clearPidList()
@@ -221,6 +265,7 @@ void satipConfig::updatePidList(u16* new_pid_list)
 	}
 
 	updatePidStatus();
+	notifyPidList();
 
 	DEBUG(MSG_MAIN, "====================== updatePidList END======================\n");
 
@@ -278,7 +323,89 @@ void satipConfig::setChannelChanged()
 
 t_pid_status satipConfig::getPidStatus()
 {
-	return m_pid_status;
+	if (m_pid_status == CONFIG_STATUS_PID_CHANGED)
+		return CONFIG_STATUS_PID_CHANGED;
+
+	t_pid_status status = CONFIG_STATUS_PID_STATIONARY;
+
+	pthread_mutex_lock(&m_ca_lock);
+	if (m_ca_dirty)
+		status = CONFIG_STATUS_PID_CHANGED;
+	pthread_mutex_unlock(&m_ca_lock);
+
+	return status;
+}
+
+/* the pids the kernel (enigma2) asked for */
+void satipConfig::collectActivePids(std::set<int>& pids)
+{
+	for (int cur_index = 0; cur_index < MAX_PIDS; cur_index++)
+	{
+		if ((m_pid_list[cur_index].status == PID_ADD) || (m_pid_list[cur_index].status == PID_VAILD))
+			pids.insert(m_pid_list[cur_index].pid);
+	}
+}
+
+void satipConfig::addCaPids(std::set<int>& pids)
+{
+	pthread_mutex_lock(&m_ca_lock);
+	pids.insert(m_ca_pids.begin(), m_ca_pids.end());
+	m_ca_dirty = false;
+	pthread_mutex_unlock(&m_ca_lock);
+}
+
+void satipConfig::commitPidStates()
+{
+	for (int cur_index = 0; cur_index < MAX_PIDS; cur_index++)
+	{
+		if (m_pid_list[cur_index].status == PID_ADD)
+			m_pid_list[cur_index].status = PID_VAILD;
+
+		else if (m_pid_list[cur_index].status == PID_DELETE)
+			m_pid_list[cur_index].status = PID_INVALID;
+	}
+}
+
+void satipConfig::notifyPidList()
+{
+	if (!m_psi)
+		return;
+
+	std::set<int> pids;
+	collectActivePids(pids);
+	m_psi->setJoinedPids(pids);
+}
+
+void satipConfig::setCaPids(const std::set<int>& pids)
+{
+	bool changed = false;
+
+	pthread_mutex_lock(&m_ca_lock);
+	if (pids != m_ca_pids)
+	{
+		m_ca_pids = pids;
+		m_ca_dirty = true;
+		changed = true;
+	}
+	pthread_mutex_unlock(&m_ca_lock);
+
+	if (changed)
+		wakeup();
+}
+
+/*
+ * The psi parser reports from the rtp thread while the session thread can sit
+ * in poll() until the next keep alive, which would delay the new pids by up to
+ * a minute.
+ */
+void satipConfig::wakeup()
+{
+	if (m_wakeup_fd < 0)
+		return;
+
+	char c = 1;
+	if (write(m_wakeup_fd, &c, 1) < 0)
+		DEBUG(MSG_MAIN, "wakeup write failed.\n");
 }
 
 std::string satipConfig::getTuningData()
@@ -520,23 +647,25 @@ std::string satipConfig::getSetupData()
 		m_status = CONFIG_STATUS_CHANNEL_STABLE;
 	}
 
-	std::ostringstream oss_addpid;
-	for (int cur_index = 0; cur_index < MAX_PIDS; cur_index++)
+	/* SETUP sends the complete list, it defines what the server knows */
+	std::set<int> pids;
+	collectActivePids(pids);
+	addCaPids(pids);
+	commitPidStates();
+
+	if (m_psi)
 	{
-		if ((m_pid_list[cur_index].status == PID_ADD) || (m_pid_list[cur_index].status == PID_VAILD))
-		{
-			if (!oss_addpid.str().empty())
-				oss_addpid << ',';
-
-			oss_addpid << m_pid_list[cur_index].pid;
-
-			m_pid_list[cur_index].status = PID_VAILD;
-		}
+		std::set<int> kernel;
+		collectActivePids(kernel);
+		INFO(MSG_CA, "SETUP pids : %s (kernel : %s)\n",
+			joinNumbers(pids).c_str(), joinNumbers(kernel).c_str());
 	}
 
-	if (!oss_addpid.str().empty()) 
+	m_requested_pids = pids;
+
+	if (!pids.empty())
 	{
-		oss_data << "&pids=" << oss_addpid.str();
+		oss_data << "&pids=" << joinNumbers(pids);
 	}
 	else
 	{
@@ -570,42 +699,54 @@ std::string satipConfig::getPlayData()
 	{
 		oss_data << getTuningData();
 		m_status = CONFIG_STATUS_CHANNEL_STABLE;
+		m_requested_pids.clear();
 	}
 
-	if (m_pid_status == CONFIG_STATUS_PID_CHANGED)
+	if (getPidStatus() == CONFIG_STATUS_PID_CHANGED)
 	{
-		std::string addpid, delpid;
-		std::ostringstream oss_addpid, oss_delpid;
-		for (int cur_index = 0; cur_index < MAX_PIDS; cur_index++)
+		/*
+		 * Diff against what the server has: a pid can be wanted by the kernel
+		 * and by the psi parser at once, and one side dropping it must not
+		 * remove it while the other still needs it.
+		 */
+		std::set<int> pids;
+		collectActivePids(pids);
+		addCaPids(pids);
+		commitPidStates();
+
+		std::set<int> addpids, delpids;
+		std::set<int>::iterator it;
+
+		for (it = pids.begin(); it != pids.end(); ++it)
 		{
-			if (m_pid_list[cur_index].status == PID_ADD)
-			{
-				if (!oss_addpid.str().empty())
-					oss_addpid << ',';
-
-				oss_addpid << m_pid_list[cur_index].pid;
-
-				m_pid_list[cur_index].status = PID_VAILD;
-			}
-			else if (m_pid_list[cur_index].status == PID_DELETE)
-			{
-				if (!oss_delpid.str().empty())
-					oss_delpid << ',';
-
-				oss_delpid << m_pid_list[cur_index].pid;
-
-				m_pid_list[cur_index].status = PID_INVALID;
-			}
+			if (m_requested_pids.find(*it) == m_requested_pids.end())
+				addpids.insert(*it);
 		}
 
-		if (!oss_addpid.str().empty())
+		for (it = m_requested_pids.begin(); it != m_requested_pids.end(); ++it)
 		{
-			oss_data << "&addpids=" << oss_addpid.str();
+			if (pids.find(*it) == pids.end())
+				delpids.insert(*it);
 		}
 
-		if (!oss_delpid.str().empty())
+		if (m_psi && (!addpids.empty() || !delpids.empty()))
 		{
-			oss_data << "&delpids=" << oss_delpid.str();
+			INFO(MSG_CA, "PLAY addpids : %s, delpids : %s (now requested : %s)\n",
+				addpids.empty() ? "-" : joinNumbers(addpids).c_str(),
+				delpids.empty() ? "-" : joinNumbers(delpids).c_str(),
+				joinNumbers(pids).c_str());
+		}
+
+		m_requested_pids = pids;
+
+		if (!addpids.empty())
+		{
+			oss_data << "&addpids=" << joinNumbers(addpids);
+		}
+
+		if (!delpids.empty())
+		{
+			oss_data << "&delpids=" << joinNumbers(delpids);
 		}
 
 		updatePidStatus();

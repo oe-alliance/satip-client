@@ -30,7 +30,8 @@ extern int use_syslog;
 #define MSG_HW		4
 #define MSG_SRV		8
 #define MSG_DATA        16
-#define MSG_ALL		(MSG_DATA | MSG_MAIN | MSG_NET | MSG_HW | MSG_SRV )
+#define MSG_CA          32
+#define MSG_ALL		(MSG_DATA | MSG_MAIN | MSG_NET | MSG_HW | MSG_SRV | MSG_CA )
 
 #define MSG_ERROR	1
 #define MSG_WARN	2

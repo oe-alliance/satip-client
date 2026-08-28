@@ -46,6 +46,7 @@ class satipSession:public Session
 	satipRTSP* m_satip_rtsp;
 	pthread_t m_session_thread;
 	bool m_running;
+	int m_wakeup_pipe[2]; /* poke the poll loop from another thread */
 
 	void *satipMainLoop();
 	static void *thread_wrapper(void *ptr);

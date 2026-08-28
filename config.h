@@ -22,9 +22,16 @@
 #define _CONFIG_H_
 
 #include <string>
+#include <set>
+#include <pthread.h>
 #include <linux/dvb/frontend.h>
 
 #include "option.h"
+
+class satipPSI;
+
+/* comma separated list, for the RTSP pid parameter and for logging */
+std::string joinNumbers(const std::set<int>& values, bool hex = false);
 
 #define MAX_PIDS 30 // from usbtunerhelper
 
@@ -137,6 +144,15 @@ public:
 		m_pls_code = pls_code;
 	}
 
+	/* CA (ecm/emm) pid handling, see psi.h */
+	satipPSI* getPSI() { return m_psi; }
+	/* called by the psi parser from the rtp thread */
+	void setCaPids(const std::set<int>& pids);
+
+	/* fd to poke when something changed outside of the session thread */
+	void setWakeupFd(int fd) { m_wakeup_fd = fd; }
+	void wakeup();
+
 	/* channel, pid status */
 	t_channel_status getChannelStatus();
 	void setChannelChanged();
@@ -168,6 +184,19 @@ private:
 	struct pid_elem m_pid_list[MAX_PIDS];
 
 	void clearPidList();
+
+	/* pids currently requested from the server (kernel pids + ca pids) */
+	std::set<int> m_requested_pids;
+	void collectActivePids(std::set<int>& pids);
+	void addCaPids(std::set<int>& pids);
+	void commitPidStates();
+	void notifyPidList();
+
+	satipPSI* m_psi;
+	std::set<int> m_ca_pids;
+	bool m_ca_dirty;
+	pthread_mutex_t m_ca_lock;
+	int m_wakeup_fd;
 
 	/* frontend params */
 	int m_signal_source;

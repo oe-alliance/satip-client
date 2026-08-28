@@ -20,6 +20,8 @@
 #include <string>
 #include <poll.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include "session.h"
 #include "config.h"
@@ -43,11 +45,27 @@ satipSession::satipSession(const char* host,
 {
 	DEBUG(MSG_MAIN,"Create SESSION.(host : %s, rtsp_port : %s, fe_type : %d\n",
 		host, rtsp_port, fe_type);
+	m_wakeup_pipe[0] = -1;
+	m_wakeup_pipe[1] = -1;
+	if (pipe(m_wakeup_pipe) == 0)
+	{
+		fcntl(m_wakeup_pipe[0], F_SETFL, fcntl(m_wakeup_pipe[0], F_GETFL, 0) | O_NONBLOCK);
+		fcntl(m_wakeup_pipe[1], F_SETFL, fcntl(m_wakeup_pipe[1], F_GETFL, 0) | O_NONBLOCK);
+	}
+	else
+	{
+		ERROR(MSG_MAIN, "wakeup pipe creation failed.\n");
+		m_wakeup_pipe[0] = -1;
+		m_wakeup_pipe[1] = -1;
+	}
+
 	m_satip_config = new satipConfig(fe_type, settings);
+	m_satip_config->setWakeupFd(m_wakeup_pipe[1]);
 	m_satip_vtuner = new satipVtuner(m_satip_config);
 	m_satip_rtp  = new satipRTP(m_satip_vtuner->getVtunerFd(), settings->m_tcpdata);
 
 	m_satip_vtuner->setSatipRTP(m_satip_rtp); // for receive RTCP data
+	m_satip_rtp->setPSI(m_satip_config->getPSI());
 
 	m_satip_rtsp = new satipRTSP(m_satip_config, host, rtsp_port, m_satip_rtp);
 
@@ -71,6 +89,12 @@ satipSession::~satipSession()
 
 	if (m_satip_config)
 		delete m_satip_config;
+
+	if (m_wakeup_pipe[0] != -1)
+		close(m_wakeup_pipe[0]);
+
+	if (m_wakeup_pipe[1] != -1)
+		close(m_wakeup_pipe[1]);
 }
 
 void *satipSession::thread_wrapper(void *ptr)
@@ -80,40 +104,51 @@ void *satipSession::thread_wrapper(void *ptr)
 
 void *satipSession::satipMainLoop()
 {
-	struct pollfd poll_fds[2];
+	struct pollfd poll_fds[3];
 	int poll_nfds;
 	int poll_ret;
 	int poll_timeout = 1000;
-
-	poll_fds[0].fd = m_satip_vtuner->getVtunerFd();
-	poll_fds[0].events = POLLPRI;
-	poll_nfds=1;
+	int wakeup_slot;
+	int rtsp_slot;
 
 	while (m_running)
 	{
 		/* loop */
 		m_satip_rtsp->handleRTSPStatus();
 
+		poll_fds[0].fd = m_satip_vtuner->getVtunerFd();
+		poll_fds[0].events = POLLPRI;
+		poll_fds[0].revents = 0;
 		poll_nfds = 1;
-		poll_fds[1].fd = m_satip_rtsp->getRtspSocketFd();
-		poll_fds[1].events = m_satip_rtsp->getPollEvent();
-		poll_fds[1].revents = 0;
-		if (poll_fds[1].events != 0)
+
+		wakeup_slot = -1;
+		if (m_wakeup_pipe[0] != -1)
 		{
+			wakeup_slot = poll_nfds;
+			poll_fds[wakeup_slot].fd = m_wakeup_pipe[0];
+			poll_fds[wakeup_slot].events = POLLIN;
+			poll_fds[wakeup_slot].revents = 0;
+			poll_nfds++;
+		}
+
+		rtsp_slot = -1;
+		short rtsp_events = m_satip_rtsp->getPollEvent();
+		if (rtsp_events != 0)
+		{
+			rtsp_slot = poll_nfds;
+			poll_fds[rtsp_slot].fd = m_satip_rtsp->getRtspSocketFd();
+			poll_fds[rtsp_slot].events = rtsp_events;
+			poll_fds[rtsp_slot].revents = 0;
 			poll_nfds++;
 		}
 
 		poll_timeout = m_satip_rtsp->getPollTimeout();
 
-//		DEBUG(MSG_MAIN, "poll_timeout : %d\n", poll_timeout);
-
 		poll_ret = poll(poll_fds, poll_nfds, poll_timeout);
-
-//		DEBUG(MSG_MAIN, "poll_ret : %d\n", poll_ret);
 
 		if (poll_ret == -1 && errno == EINTR)
 			DEBUG(MSG_MAIN, "poll EINTR.\n");
-		
+
 		if (poll_ret == -1 && errno != EINTR)
 		{
 			perror ("poll error : ");
@@ -122,13 +157,20 @@ void *satipSession::satipMainLoop()
 
 		m_satip_rtsp->handleNextTimer();
 
+		if (wakeup_slot != -1 && (poll_fds[wakeup_slot].revents & POLLIN))
+		{
+			char drain[64];
+			while (read(m_wakeup_pipe[0], drain, sizeof(drain)) > 0)
+				;
+		}
+
 		if (poll_fds[0].revents != 0)
 			m_satip_vtuner->vtunerEvent();
 
-		if (poll_fds[1].revents != 0)
-			m_satip_rtsp->handlePollEvents(poll_fds[1].revents);
-
+		if (rtsp_slot != -1 && poll_fds[rtsp_slot].revents != 0)
+			m_satip_rtsp->handlePollEvents(poll_fds[rtsp_slot].revents);
 	}
+
 	return 0;
 }
 
@@ -148,6 +190,7 @@ void satipSession::stop()
 {
 	m_satip_rtp->stop();
 	m_running = false;
+	m_satip_config->wakeup(); /* do not wait for the poll timeout */
 }
 
 void satipSession::join()

@@ -10,5 +10,6 @@ satipclient_SOURCES = \
 	config.cpp \
 	rtsp.cpp \
 	rtp.cpp \
+	psi.cpp \
 	vtuner.cpp
 	

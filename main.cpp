@@ -33,7 +33,8 @@
 
 int dbg_level = MSG_ERROR;
 
-unsigned int dbg_mask = MSG_MAIN | MSG_NET | MSG_HW | MSG_SRV;
+/* MSG_DATA is left out on purpose, it logs every single rtp packet */
+unsigned int dbg_mask = MSG_MAIN | MSG_NET | MSG_HW | MSG_SRV | MSG_CA;
 int use_syslog = 0;
 
 bool main_running = true;
@@ -50,7 +51,13 @@ void sigint_handler(int signo)
 void print_usage(void)
 {
     printf("Usage: satip-client <options>\n"
-           "       -m <debug_mask>      Used for debugging, see code\n"
+           "       -m <debug_mask>      Bitmask, default 47:\n"
+           "                               1: main\n"
+           "                               2: net\n"
+           "                               4: hw\n"
+           "                               8: srv\n"
+           "                              16: data (one line per rtp packet!)\n"
+           "                              32: ca (ecm/emm pid detection)\n"
            "       -l <log_level>       Log level: (default: 1)\n"
            "                               0: None\n"
            "                               1: Error\n"

@@ -97,6 +97,9 @@ void optParser::load()
 		for (unsigned int i=0 ; i < data.size() ; i++)
 		{
 			std::vector<std::string> attr = split(data[i], ':');
+			if (attr.size() < 2)
+				continue;
+
 			if (attr[0] == "vtuner_type")
 				m_settings[index].m_vtuner_type = attr[1];
 
@@ -114,6 +117,29 @@ void optParser::load()
                                 m_settings[index].m_fe_number = atoi(attr[1].c_str());
 			else if (attr[0] == "port")
 				m_settings[index].m_port = attr[1];
+
+			else if (attr[0] == "ca_pids")
+				m_settings[index].m_ca_pids = (attr[1] == "1");
+
+			else if (attr[0] == "ca_emm")
+				m_settings[index].m_ca_emm = (attr[1] == "1");
+
+			else if (attr[0] == "ca_caids")
+			{
+				/* ca_caids:1833;09C4 - hex, ';' separated (',' and ':' are taken) */
+				std::vector<std::string> caids = split(attr[1], ';');
+				for (unsigned int c = 0; c < caids.size(); c++)
+				{
+					if (caids[c].empty())
+						continue;
+
+					long caid = strtol(caids[c].c_str(), NULL, 16);
+					if (caid > 0 && caid <= 0xffff)
+						m_settings[index].m_ca_caids.insert((int)caid);
+					else
+						ERROR(MSG_MAIN, "ignoring invalid caid '%s'\n", caids[c].c_str());
+				}
+			}
 		}
 	}
 }
