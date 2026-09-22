@@ -46,7 +46,9 @@ public:
 	void start(long msec, int single = false)
 	{
 		struct timespec cur_ts;
-		clock_gettime(CLOCK_REALTIME,&cur_ts);
+		/* MONOTONIC: a REALTIME step (NTP, transponder time) must never
+		 * fire or stall these watchdogs. */
+		clock_gettime(CLOCK_MONOTONIC,&cur_ts);
 		m_interval = msec;
 		m_active = true;
 		m_single = single;
@@ -70,7 +72,7 @@ public:
 		if (m_active)
 		{
 			struct timespec ts;
-			clock_gettime(CLOCK_REALTIME,&ts);
+			clock_gettime(CLOCK_MONOTONIC,&ts);
 
 			m_handler(m_params);
 

@@ -78,7 +78,7 @@ satipRTSP::~satipRTSP()
 	free(m_port);
 }
 
-void satipRTSP::resetConnect()
+void satipRTSP::resetConnect(bool auto_reconnect)
 {
 	DEBUG(MSG_MAIN, "resetConnect\n");
 	m_rtsp_status = RTSP_STATUS_CONFIG_WAITING;
@@ -100,13 +100,24 @@ void satipRTSP::resetConnect()
 
 	stopTimerResetConnect();
 	stopTimerKeepAliveMessage();
+	/* A lost session (watchdog, socket error, failed request) must not
+	 * strand the tuner: enigma2 only pushes tuning data on (re)tune, so
+	 * without this the client idles in CONFIG_WAITING until the next zap.
+	 * Re-drive connect + SETUP from the retained tuning data; the full pid
+	 * list goes out with SETUP. Skipped when the tuner was released
+	 * (INVALID) or torn down on purpose. */
+	if (auto_reconnect &&
+	    m_satip_config->getChannelStatus() != CONFIG_STATUS_CHANNEL_INVALID)
+	{
+		m_satip_config->setChannelChanged();
+	}
 }
 
 void satipRTSP::timeoutConnect(void *ptr)
 {
 	DEBUG(MSG_MAIN, "timeoutConnect\n");
 	satipRTSP* _this = (satipRTSP*)ptr;
-	_this->resetConnect();
+	_this->resetConnect(true);
 }
 
 void satipRTSP::timeoutKeepAlive(void *ptr)
@@ -325,7 +336,7 @@ again:
 				DEBUG(MSG_MAIN, "RTSP RESPONSE TEARDOWN is failed! try reconnect.\n");
 				break;
 		}
-		resetConnect();
+		resetConnect(true);
 		return res;
 	}
 
@@ -516,7 +527,7 @@ int satipRTSP::sendRequest(int request)
 			default:
 				break;
 		}
-		resetConnect();
+		resetConnect(true);
 	}
 
 	return res;
@@ -827,7 +838,7 @@ void satipRTSP::handlePollEvents(short events)
 	if (events & POLLHUP)
 	{
 		DEBUG(MSG_MAIN, "RTSP socket disconnedted, retry connection.\n");
-		resetConnect();
+		resetConnect(true);
 		return;
 	}
 

@@ -91,7 +91,7 @@ private:
 
 	bool m_wait_response;
 	
-	void resetConnect();
+	void resetConnect(bool auto_reconnect = false);
 	int connectToServer();
 
 	int rtpData(size_t len);
