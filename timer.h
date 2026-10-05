@@ -46,14 +46,16 @@ public:
 	void start(long msec, int single = false)
 	{
 		struct timespec cur_ts;
-		clock_gettime(CLOCK_REALTIME,&cur_ts);
+		/* MONOTONIC: a REALTIME step (NTP, transponder time) must never
+		 * fire or stall these watchdogs. */
+		clock_gettime(CLOCK_MONOTONIC,&cur_ts);
 		m_interval = msec;
 		m_active = true;
 		m_single = single;
 
 		m_ts.tv_sec =  cur_ts.tv_sec + m_interval/1000;
 		m_ts.tv_nsec = cur_ts.tv_nsec + (m_interval % 1000) * 1000000;
-		if (m_ts.tv_nsec > 1000000000)
+		if (m_ts.tv_nsec >= 1000000000)
 		{
 			m_ts.tv_sec += 1;
 			m_ts.tv_nsec -= 1000000000;
@@ -70,7 +72,7 @@ public:
 		if (m_active)
 		{
 			struct timespec ts;
-			clock_gettime(CLOCK_REALTIME,&ts);
+			clock_gettime(CLOCK_MONOTONIC,&ts);
 
 			m_handler(m_params);
 
@@ -82,7 +84,7 @@ public:
 			{
 				m_ts.tv_sec =  ts.tv_sec + m_interval/1000;
 				m_ts.tv_nsec = ts.tv_nsec + (m_interval % 1000) * 1000000;
-				if (m_ts.tv_nsec > 1000000000)
+				if (m_ts.tv_nsec >= 1000000000)
 				{
 					m_ts.tv_sec += 1;
 					m_ts.tv_nsec -= 1000000000;

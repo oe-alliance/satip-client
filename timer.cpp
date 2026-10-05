@@ -36,7 +36,7 @@ satipTimer::~satipTimer()
 void satipTimer::dump()
 {
 	struct timespec cur_ts;
-	clock_gettime(CLOCK_REALTIME,&cur_ts);
+	clock_gettime(CLOCK_MONOTONIC,&cur_ts);
 
 	std::list<timer_elem*>::iterator it = m_timer_list.begin();
 	for(;it != m_timer_list.end(); ++it)
@@ -71,7 +71,7 @@ void satipTimer::remove(timer_elem* timer)
 void satipTimer::callNextTimer()
 {
 	struct timespec cur_ts;
-	clock_gettime(CLOCK_REALTIME,&cur_ts);
+	clock_gettime(CLOCK_MONOTONIC,&cur_ts);
 
 	for(std::list<timer_elem*>::iterator it = m_timer_list.begin() ;it != m_timer_list.end(); ++it)
 	{
@@ -113,7 +113,7 @@ int satipTimer::getNextTimerBegin()
 		if (min_timer_elem != NULL)
 		{
 			struct timespec cur_ts;
-			clock_gettime(CLOCK_REALTIME,&cur_ts);
+			clock_gettime(CLOCK_MONOTONIC,&cur_ts);
 
 			msec = (min_timer_elem->getTimeSpecSec() - cur_ts.tv_sec) * 1000 + (min_timer_elem->getTimeSpecNsec() - cur_ts.tv_nsec) / (1000000) + 1;
 

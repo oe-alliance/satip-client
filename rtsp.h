@@ -63,6 +63,7 @@ public:
 	static void timeoutConnect(void *ptr);
 	static void timeoutKeepAlive(void *ptr);
 	static void timeoutStreamInfo(void *ptr);
+	static void timeoutReconnect(void *ptr);
 
 private:
 	char *m_host;
@@ -72,6 +73,9 @@ private:
 	satipTimer m_satip_timer;
 	timer_elem *m_timer_reset_connect;
 	timer_elem *m_timer_keep_alive;
+	timer_elem *m_timer_reconnect;
+	int m_reconnect_attempts;
+	unsigned long m_attempted_generation;
 	int m_fd;
 
 	char m_txbuf[1024];
@@ -91,7 +95,7 @@ private:
 
 	bool m_wait_response;
 	
-	void resetConnect();
+	void resetConnect(bool auto_reconnect = false);
 	int connectToServer();
 
 	int rtpData(size_t len);
@@ -116,6 +120,9 @@ private:
 	void stopTimerResetConnect();
 	void startTimerKeepAliveMessage();
 	void stopTimerKeepAliveMessage();
+	void startTimerReconnect();
+	void stopTimerReconnect();
+	void resetReconnectBackoff();
 };
 #endif // __RTSP_H__
 

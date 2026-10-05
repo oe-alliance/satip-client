@@ -156,6 +156,9 @@ public:
 	/* channel, pid status */
 	t_channel_status getChannelStatus();
 	void setChannelChanged();
+	void setChannelRetry();
+	void clearChannelChanged();
+	unsigned long getTuneGeneration() { return m_tune_generation; }
 	t_pid_status getPidStatus();
 	void updatePidList(u16* new_pid_list);
 	void updatePidStatus();
@@ -217,6 +220,7 @@ private:
 
 	t_channel_status m_status;
 	t_pid_status m_pid_status;
+	unsigned long m_tune_generation;
 
 	t_lnb_onoff m_lnb_voltage_onoff;
 	
