@@ -71,6 +71,7 @@ satipConfig::satipConfig(int fe_type, vtunerOpt* settings):
 	m_pol(CONFIG_POL_HORIZONTAL),
 	m_status(CONFIG_STATUS_CHANNEL_INVALID),
 	m_pid_status(CONFIG_STATUS_PID_STATIONARY),
+	m_tune_generation(0),
 	m_lnb_voltage_onoff(CONFIG_LNB_OFF),
 	m_settings(settings)
 {
@@ -318,7 +319,19 @@ t_channel_status satipConfig::getChannelStatus()
 
 void satipConfig::setChannelChanged()
 {
+	m_tune_generation++;
 	m_status = CONFIG_STATUS_CHANNEL_CHANGED;
+}
+
+void satipConfig::setChannelRetry()
+{
+	m_status = CONFIG_STATUS_CHANNEL_CHANGED;
+}
+
+void satipConfig::clearChannelChanged()
+{
+	if (m_status == CONFIG_STATUS_CHANNEL_CHANGED)
+		m_status = CONFIG_STATUS_CHANNEL_STABLE;
 }
 
 t_pid_status satipConfig::getPidStatus()

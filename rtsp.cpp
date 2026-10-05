@@ -47,6 +47,9 @@ satipRTSP::satipRTSP(satipConfig* satip_config,
 			     m_satip_config(satip_config),
 			     m_timer_reset_connect(NULL),
 			     m_timer_keep_alive(NULL),
+			     m_timer_reconnect(NULL),
+			     m_reconnect_attempts(0),
+			     m_attempted_generation(0),
 			     m_fd(-1),
 			     m_rx_data_pos(0),
 			     m_rtsp_status(RTSP_STATUS_CONFIG_WAITING),
@@ -66,7 +69,8 @@ satipRTSP::satipRTSP(satipConfig* satip_config,
 
 	m_timer_reset_connect = m_satip_timer.create(timeoutConnect, (void *)this, "reset connect");
 	m_timer_keep_alive = m_satip_timer.create(timeoutKeepAlive, (void *)this, "keep alive message");
-	
+	m_timer_reconnect = m_satip_timer.create(timeoutReconnect, (void *)this, "reconnect");
+
 	resetConnect();
 }
 
@@ -100,17 +104,25 @@ void satipRTSP::resetConnect(bool auto_reconnect)
 
 	stopTimerResetConnect();
 	stopTimerKeepAliveMessage();
-	/* A lost session (watchdog, socket error, failed request) must not
-	 * strand the tuner: enigma2 only pushes tuning data on (re)tune, so
-	 * without this the client idles in CONFIG_WAITING until the next zap.
-	 * Re-drive connect + SETUP from the retained tuning data; the full pid
-	 * list goes out with SETUP. Skipped when the tuner was released
-	 * (INVALID) or torn down on purpose. */
-	if (auto_reconnect &&
-	    m_satip_config->getChannelStatus() != CONFIG_STATUS_CHANNEL_INVALID)
+	/* Lost session: re-drive connect + SETUP from retained tuning after
+	 * backoff (immediate retry hammered a sick server); skip if released. */
+	if (!auto_reconnect ||
+	    m_satip_config->getChannelStatus() == CONFIG_STATUS_CHANNEL_INVALID)
 	{
-		m_satip_config->setChannelChanged();
+		stopTimerReconnect();
+		resetReconnectBackoff();
+		return;
 	}
+	if (m_satip_config->getChannelStatus() == CONFIG_STATUS_CHANNEL_CHANGED &&
+	    m_satip_config->getTuneGeneration() > m_attempted_generation)
+	{
+		/* Genuine retune not yet attempted: keep it, drop backoff. */
+		stopTimerReconnect();
+		resetReconnectBackoff();
+		return;
+	}
+	m_satip_config->clearChannelChanged();
+	startTimerReconnect();
 }
 
 void satipRTSP::timeoutConnect(void *ptr)
@@ -132,6 +144,27 @@ void satipRTSP::timeoutStreamInfo(void *ptr)
 	DEBUG(MSG_MAIN, "timeoutStreamInfo\n");
 	satipRTSP* _this = (satipRTSP*)ptr;
 	_this->sendRequest(RTSP_REQUEST_DESCRIBE);
+}
+
+void satipRTSP::timeoutReconnect(void *ptr)
+{
+	DEBUG(MSG_MAIN, "timeoutReconnect\n");
+	satipRTSP* _this = (satipRTSP*)ptr;
+	t_channel_status status = _this->m_satip_config->getChannelStatus();
+	if (status == CONFIG_STATUS_CHANNEL_INVALID)
+	{
+		/* Tuner released while the retry was pending: cancel. */
+		_this->resetReconnectBackoff();
+		return;
+	}
+	if (status == CONFIG_STATUS_CHANNEL_CHANGED)
+	{
+		/* Explicit retune arrived during the wait: drop the penalty
+		 * so the new tuning is not delayed by old failures. */
+		_this->resetReconnectBackoff();
+		return;
+	}
+	_this->m_satip_config->setChannelRetry();
 }
 
 int satipRTSP::connectToServer()
@@ -713,16 +746,36 @@ void satipRTSP::handleRTSPStatus()
 	{
 		case RTSP_STATUS_CONFIG_WAITING:
 			DEBUG(MSG_MAIN, "RTSP STATUS : RTSP_STATUS_CONFIG_WAITING\n");
-			if (m_satip_config->getChannelStatus() == CONFIG_STATUS_CHANNEL_CHANGED)
 			{
-				if (connectToServer() == RTSP_OK)
+				t_channel_status channel_status = m_satip_config->getChannelStatus();
+				if (channel_status == CONFIG_STATUS_CHANNEL_INVALID)
 				{
-					m_rtsp_status = RTSP_STATUS_SERVER_CONNECTING;
-					startTimerResetConnect(5000);
+					/* Tuner released: cancel any pending retry. */
+					if (m_timer_reconnect->isActive())
+						stopTimerReconnect();
+					resetReconnectBackoff();
 				}
-				else
+				else if (channel_status == CONFIG_STATUS_CHANNEL_CHANGED)
 				{
-					DEBUG(MSG_MAIN, "Connect to server failed!\n");
+					/* Genuine new tuning (not our scheduled retry):
+					 * cancel any wait and connect at once. */
+					if (m_satip_config->getTuneGeneration() > m_attempted_generation)
+					{
+						stopTimerReconnect();
+						resetReconnectBackoff();
+					}
+					m_attempted_generation = m_satip_config->getTuneGeneration();
+					if (connectToServer() == RTSP_OK)
+					{
+						m_rtsp_status = RTSP_STATUS_SERVER_CONNECTING;
+						startTimerResetConnect(5000);
+					}
+					else
+					{
+						DEBUG(MSG_MAIN, "Connect to server failed!\n");
+						m_satip_config->clearChannelChanged();
+						startTimerReconnect();
+					}
 				}
 			}
 			break;
@@ -794,33 +847,33 @@ short satipRTSP::getPollEvent()
 	{
 		case RTSP_STATUS_CONFIG_WAITING:
 			if ( m_satip_config->isTcpData() ) // TCP data mode
-				events = POLLIN | POLLHUP;
+				events = POLLIN | POLLHUP | POLLERR | POLLNVAL;
 			else
 				events = 0; // no poll
 			break;
 
 		case RTSP_STATUS_SERVER_CONNECTING: // connected to serverm check if server ready to send RTSP requests.
-			events = POLLOUT | POLLHUP;
+			events = POLLOUT | POLLHUP | POLLERR | POLLNVAL;
 			break;
 
 		case RTSP_STATUS_SESSION_ESTABLISHING: // SETUP request sended, check read to receive SETUP response.
-			events = POLLIN | POLLHUP;
+			events = POLLIN | POLLHUP | POLLERR | POLLNVAL;
 			break;
 
 		case RTSP_STATUS_SESSION_PLAYING: // PLAY request sended, check read to receive PLAY response.
-			events = POLLIN | POLLHUP;
+			events = POLLIN | POLLHUP | POLLERR | POLLNVAL;
 			break;
 
 		case RTSP_STATUS_SESSION_TRANSMITTING:
 			if ( m_rtsp_request == RTSP_REQUEST_OPTION ||  // keep alive message
 			     m_satip_config->isTcpData() )             // or TCP data mode
-				events = POLLIN | POLLHUP;
+				events = POLLIN | POLLHUP | POLLERR | POLLNVAL;
 			else
 				events = 0; // no poll
 			break;
 
 		case RTSP_STATUS_SESSION_TEARDOWNING: // TEARDOWN request sended, check read to receive TEARDOWN response.
-			events = POLLIN | POLLHUP;
+			events = POLLIN | POLLHUP | POLLERR | POLLNVAL;
 			break;
 
 		default:
@@ -835,9 +888,9 @@ short satipRTSP::getPollEvent()
 void satipRTSP::handlePollEvents(short events)
 {
 //	DEBUG(MSG_MAIN, "handlePollEvents.\n");
-	if (events & POLLHUP)
+	if (events & (POLLHUP | POLLERR | POLLNVAL))
 	{
-		DEBUG(MSG_MAIN, "RTSP socket disconnedted, retry connection.\n");
+		DEBUG(MSG_MAIN, "RTSP socket disconnected (events=0x%x), retry connection.\n", events);
 		resetConnect(true);
 		return;
 	}
@@ -878,6 +931,8 @@ void satipRTSP::handlePollEvents(short events)
 				if (res == RTSP_RESPONSE_COMPLETE) // handle response PLAY
 				{
 					m_rtsp_status = RTSP_STATUS_SESSION_TRANSMITTING;
+					stopTimerReconnect();
+					resetReconnectBackoff();
 				}
 			}
 			break;
@@ -939,6 +994,31 @@ void satipRTSP::stopTimerKeepAliveMessage()
 {
 	DEBUG(MSG_MAIN, "stopTimerKeepAliveMessage\n");
 	m_timer_keep_alive->stop();
+}
+
+void satipRTSP::startTimerReconnect()
+{
+	const long initial_ms = 1000;
+	const long max_ms = 30000;
+	long delay = initial_ms << m_reconnect_attempts;
+	if (delay > max_ms || delay <= 0)
+		delay = max_ms;
+	DEBUG(MSG_MAIN, "startTimerReconnect in %ld ms (attempt %d)\n",
+	      delay, m_reconnect_attempts + 1);
+	m_timer_reconnect->start(delay, true);
+	if (delay < max_ms)
+		m_reconnect_attempts++;
+}
+
+void satipRTSP::stopTimerReconnect()
+{
+	DEBUG(MSG_MAIN, "stopTimerReconnect\n");
+	m_timer_reconnect->stop();
+}
+
+void satipRTSP::resetReconnectBackoff()
+{
+	m_reconnect_attempts = 0;
 }
 
 int satipRTSP::getRtspSocketFd()

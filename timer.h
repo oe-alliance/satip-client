@@ -55,7 +55,7 @@ public:
 
 		m_ts.tv_sec =  cur_ts.tv_sec + m_interval/1000;
 		m_ts.tv_nsec = cur_ts.tv_nsec + (m_interval % 1000) * 1000000;
-		if (m_ts.tv_nsec > 1000000000)
+		if (m_ts.tv_nsec >= 1000000000)
 		{
 			m_ts.tv_sec += 1;
 			m_ts.tv_nsec -= 1000000000;
@@ -84,7 +84,7 @@ public:
 			{
 				m_ts.tv_sec =  ts.tv_sec + m_interval/1000;
 				m_ts.tv_nsec = ts.tv_nsec + (m_interval % 1000) * 1000000;
-				if (m_ts.tv_nsec > 1000000000)
+				if (m_ts.tv_nsec >= 1000000000)
 				{
 					m_ts.tv_sec += 1;
 					m_ts.tv_nsec -= 1000000000;
