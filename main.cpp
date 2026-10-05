@@ -18,8 +18,12 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
 #include <unistd.h>
 #include <signal.h>
+#include <pthread.h>
 
 #include <sched.h>
 #include <sys/mman.h>
@@ -39,13 +43,23 @@ int use_syslog = 0;
 
 bool main_running = true;
 
+/* Set by the signal handler; read by main(). sig_atomic_t assignment is
+ * async-signal-safe. All logging (fprintf/syslog) and session teardown
+ * (sessionStop/sessionJoin, pthread_join) run in main() after wakeup, never
+ * in the handler, where they could deadlock against an interrupted call. */
+static volatile sig_atomic_t shutdown_signo = 0;
+
 void sigint_handler(int signo)
 {
-	DEBUG(MSG_MAIN, "sigint_handler called\n");
-	signal(SIGINT, SIG_DFL);
-	sessionManager* vtmng = sessionManager::getInstance();
-	vtmng->sessionStop();
-	vtmng->sessionJoin();
+	if (shutdown_signo) {
+		/* Second signal while shutting down: restore the default
+		 * disposition and re-raise so the process can still be
+		 * killed. signal() and raise() are async-signal-safe. */
+		signal(signo, SIG_DFL);
+		raise(signo);
+		return;
+	}
+	shutdown_signo = signo;
 }
 
 void print_usage(void)
@@ -65,6 +79,7 @@ void print_usage(void)
            "                               3: Info\n"
            "                               4: Debug\n"
            "       -y                   Use syslog instead of STDERR for logging\n"
+           "       -f <log_file>        Append log messages to file instead of STDERR\n"
            "       -h                   Print help\n"
                                              );
 }
@@ -93,7 +108,7 @@ int main(int argc, char** argv)
 {
 	int opt;
 
-	while( (opt = getopt(argc, argv, "m:l:yh") ) != -1 )
+	while( (opt = getopt(argc, argv, "m:l:yf:h") ) != -1 )
 	{
 		switch(opt)
 		{
@@ -109,6 +124,21 @@ int main(int argc, char** argv)
 				use_syslog = 1;
 				break;
 
+			case 'f':
+			{
+				FILE *f = fopen(optarg, "a");
+				if (!f)
+				{
+					fprintf(stderr, "Cannot open log file '%s': %s\n", optarg, strerror(errno));
+					exit(1);
+				}
+				setvbuf(f, NULL, _IOLBF, 0);
+				if (log_file)
+					fclose(log_file);
+				log_file = f;
+				break;
+			}
+
 			case 'h':
 			default:
 				print_usage();
@@ -120,16 +150,50 @@ int main(int argc, char** argv)
 	enable_rt_scheduling();
 #endif
 
-	signal(SIGINT, sigint_handler);
-	signal(SIGTERM, sigint_handler);
-	signal(SIGKILL, sigint_handler);
+	/* Block SIGINT/SIGTERM before worker threads are created so they
+	 * inherit the blocked mask and the signals are always delivered to
+	 * the main thread waiting in sigsuspend() below. */
+	sigset_t block_set, prev_mask, suspend_mask;
+	sigemptyset(&block_set);
+	sigaddset(&block_set, SIGINT);
+	sigaddset(&block_set, SIGTERM);
+	pthread_sigmask(SIG_BLOCK, &block_set, &prev_mask);
+
+	struct sigaction sa;
+	memset(&sa, 0, sizeof(sa));
+	sa.sa_handler = sigint_handler;
+	sigemptyset(&sa.sa_mask);
+	sa.sa_flags = SA_RESTART;
+	sigaction(SIGINT, &sa, NULL);
+	sigaction(SIGTERM, &sa, NULL);
+	/* NOTE: SIGKILL cannot be caught, blocked, or handled; there is
+	 * intentionally no handler for it. */
 
 	sessionManager* vtmng = sessionManager::getInstance();
 	int res = vtmng->satipStart();
-	if (!res)
-		pause();
+	if (!res) {
+		/* Atomically unblock and wait; unlike pause() this cannot miss
+		 * a signal that arrives between the flag check and the wait. */
+		suspend_mask = prev_mask;
+		sigdelset(&suspend_mask, SIGINT);
+		sigdelset(&suspend_mask, SIGTERM);
+		while (!shutdown_signo)
+			sigsuspend(&suspend_mask);
+
+		pthread_sigmask(SIG_SETMASK, &prev_mask, NULL);
+
+		DEBUG(MSG_MAIN, "received signal %d, shutting down\n", (int)shutdown_signo);
+		vtmng->sessionStop();
+		vtmng->sessionJoin();
+	} else {
+		pthread_sigmask(SIG_SETMASK, &prev_mask, NULL);
+	}
 
 	DEBUG(MSG_MAIN,"End MAIN\n");
+
+	/* Do not fclose(log_file) here: static destructors (e.g.
+	   ~sessionManager) still log after main() returns. The file
+	   stays open until process exit; every message is flushed. */
 
 	return 0;
 }

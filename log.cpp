@@ -26,6 +26,12 @@
 
 __thread char msg[MAX_MSGSIZE];
 
+FILE *log_file = NULL;
+
+/* NOTE: not async-signal-safe (uses fprintf/fflush/syslog on shared
+ * streams). Never call write_message() — or the ERROR/WARN/INFO/DEBUG
+ * macros — from a signal handler; set a sig_atomic_t flag there and log
+ * after returning to normal execution. */
 void write_message(const unsigned int mtype, const int level, const char* fmt, ... ) {
 	if( !(mtype & dbg_mask ) )
 		return;
@@ -40,7 +46,12 @@ void write_message(const unsigned int mtype, const int level, const char* fmt, .
 		strncat(msg, tn, sizeof(msg)-1);
 		msg[sizeof(tn)-1] = '\0';
 
-		if(use_syslog) {
+		if(log_file) {
+			struct timespec tp;
+			clock_gettime(CLOCK_MONOTONIC_COARSE, &tp);
+			fprintf(log_file, "[%ld.%03ld]%s", (long)tp.tv_sec, (long)tp.tv_nsec / 1000000L, msg);
+			fflush(log_file);
+		} else if(use_syslog) {
 			int priority;
 			switch(level) {
 				case 1: priority=LOG_ERR; break;

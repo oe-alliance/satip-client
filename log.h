@@ -20,9 +20,11 @@
 
 #include <sys/types.h>
 #include <unistd.h>
+#include <stdio.h>
 extern int dbg_level;
 extern unsigned int dbg_mask; // MSG_DATA | MSG_MAIN | MSG_NET | MSG_HW | MSG_SRV
 extern int use_syslog;
+extern FILE *log_file;
 
 
 #define MSG_MAIN	1
