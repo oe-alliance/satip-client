@@ -20,6 +20,7 @@
  */
 
 #include <stdio.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
@@ -74,7 +75,7 @@ static inline int64_t timeout_msec ( const timespec & orig )
 }
 
 satipVtuner::satipVtuner(satipConfig* satip_cfg)
-	:m_fd(-1), m_openok(false), m_tone(SEC_TONE_OFF)
+	:m_fd(-1), m_ioctl_offset(0), m_openok(false), m_tone(SEC_TONE_OFF)
 {
 	DEBUG(MSG_MAIN,"Create SATIP VTUNER.\n");
 	m_satip_cfg = satip_cfg;
@@ -118,7 +119,8 @@ int satipVtuner::AllocateVtuner()
 int satipVtuner::openVtuner()
 {
 	int fd;
-	struct dvb_frontend_info fe_info;
+	int result;
+	struct dvb_frontend_info fe_info = {};
 
 	int fe_type = -1;
 	char fe_type_str[8];
@@ -196,9 +198,29 @@ int satipVtuner::openVtuner()
 			break;
 	}
 
-	ioctl(fd, VTUNER_SET_NAME, fe_info.name);
-	ioctl(fd, VTUNER_SET_TYPE, fe_type_str);
-	ioctl(fd, VTUNER_SET_FE_INFO, &fe_info);
+	result = ioctl(fd, VTUNER_SET_NAME, fe_info.name);
+	if (result < 0 && (errno == EINVAL || errno == ENOTTY))
+	{
+		// SET_NAME is safe to probe in both interfaces, unlike GET_MESSAGE/FIBMAP.
+		m_ioctl_offset = VTUNER_SET_NAME == 13 ? -10 : 10;
+		result = ioctl(fd, VTUNER_SET_NAME + m_ioctl_offset, fe_info.name);
+	}
+	if (result < 0)
+	{
+		ERROR(MSG_MAIN, "VTUNER_SET_NAME failed: %s\n", strerror(errno));
+		goto error;
+	}
+	INFO(MSG_MAIN, "vtuner ioctl interface: %s\n", VTUNER_SET_NAME + m_ioctl_offset == 3 ? "legacy" : "extended");
+	if (ioctl(fd, VTUNER_SET_TYPE + m_ioctl_offset, fe_type_str) < 0)
+	{
+		ERROR(MSG_MAIN, "VTUNER_SET_TYPE failed: %s\n", strerror(errno));
+		goto error;
+	}
+	if (ioctl(fd, VTUNER_SET_FE_INFO + m_ioctl_offset, &fe_info) < 0)
+	{
+		ERROR(MSG_MAIN, "VTUNER_SET_FE_INFO failed: %s\n", strerror(errno));
+		goto error;
+	}
 
 #if DVB_VER_ATLEAST(5, 5)
 	/* set delsys */
@@ -227,12 +249,13 @@ int satipVtuner::openVtuner()
 				break;
 		}
 	//		p[0].u.buffer.len = ncaps;
-		ioctl(fd, VTUNER_SET_DELSYS, p[0].u.buffer.data);
+		if (ioctl(fd, VTUNER_SET_DELSYS + m_ioctl_offset, p[0].u.buffer.data) < 0)
+			WARN(MSG_MAIN, "VTUNER_SET_DELSYS failed: %s\n", strerror(errno));
 	}
 #endif
 
 	/* has_outputs */
-	if (ioctl(fd, VTUNER_SET_HAS_OUTPUTS, "no"))
+	if (ioctl(fd, VTUNER_SET_HAS_OUTPUTS + m_ioctl_offset, "no"))
 	{
 		ERROR(MSG_MAIN,"VTUNER_SET_HAS_OUTPUTS error\n");
 	}
@@ -505,7 +528,7 @@ void satipVtuner::vtunerEvent()
 {
 	struct vtuner_message  msg;
 
-	if (ioctl(m_fd, VTUNER_GET_MESSAGE, &msg))
+	if (ioctl(m_fd, VTUNER_GET_MESSAGE + m_ioctl_offset, &msg))
 		return;
 
 	switch(msg.type)
@@ -625,7 +648,7 @@ void satipVtuner::vtunerEvent()
 
 	msg.type=0;
 
-	if (ioctl(m_fd, VTUNER_SET_RESPONSE, &msg))
+	if (ioctl(m_fd, VTUNER_SET_RESPONSE + m_ioctl_offset, &msg))
 		return;
 }
 

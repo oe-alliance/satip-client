@@ -155,10 +155,11 @@ struct vtuner_message
  * The vtuner interface does not use the ioctl macros, so its numbers 1 and 2
  * collide with the kernel bmap ioctls wherever _IOC_NONE is zero, which is
  * the case on arm, aarch64 and x86 but not on mips. Where they collide, the
- * driver expects the higher numbers. Detecting that here saves adding every
+ * driver normally expects the higher numbers. Detecting that here saves adding every
  * new platform to the boxtype list in configure.ac; the list still wins where
  * it is set, so boxes that are known to need the high numbers keep them on
- * any architecture.
+ * any architecture. This only selects the preferred numbers: openVtuner checks
+ * SET_NAME because Dreambox ARM drivers still use the legacy interface.
  */
 #if defined(VMSG_TYPE2) || (defined(_IOC_NONE) && _IOC_NONE == 0)
 #define VTUNER_GET_MESSAGE  11
@@ -183,6 +184,7 @@ struct vtuner_message
 class satipVtuner
 {
 	int m_fd;
+	int m_ioctl_offset;
 	bool m_openok;
 
 	int tune_tries;
