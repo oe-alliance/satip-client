@@ -119,7 +119,7 @@ void satipConfig::clearProperty()
 	m_transmode = TRANSMISSION_MODE_AUTO;
 	m_guard_interval = GUARD_INTERVAL_AUTO;
 	m_bandwidth = 0; /* AUTO */
-	m_plpid = 0;
+	m_plpid = NO_STREAM_ID_FILTER;
 	m_pls_code = 0;
 
 	clearPidList();
@@ -507,7 +507,7 @@ std::string satipConfig::getTuningData()
 		if (m_msys == SYS_DVBS2)
 		{
 			unsigned int _pls_code = m_pls_code;
-			if (m_plpid > 0 && (unsigned int)m_plpid != NO_STREAM_ID_FILTER) {
+			if ((unsigned int)m_plpid != NO_STREAM_ID_FILTER) {
 				/* input stream identificator (isi) */
 				oss_data << "&isi=" << (m_plpid & 0xFF);
 				/* old format */
